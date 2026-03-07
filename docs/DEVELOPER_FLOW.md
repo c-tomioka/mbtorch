@@ -1,4 +1,4 @@
-# DEVELOPER-FLOW （開発フロー）
+# DEVELOPER FLOW （開発フロー）
 
 MbTorch では、**1 モジュールごとに同じ開発サイクル**を回すことを基本とします。  
 ここでは、例として `core/tensor` に基本テンソル演算（`add`, `mul`, `matmul`）を追加する場合のフローを示します。

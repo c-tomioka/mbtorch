@@ -2,7 +2,9 @@
 name: moonbit-investigating-errors
 description: >
   Investigate MoonBit compiler errors and error codes, explain their causes
-  in plain language, and propose concrete resolution plans.
+  in plain language, and propose concrete resolution plans. Use this skill
+  whenever MoonBit compiler errors, error codes (E0xxx/E3xxx/E4xxx), build
+  failures, or diagnostics need to be understood and resolved.
 tags:
   - moonbit
   - errors
@@ -20,112 +22,127 @@ Use this skill when you need to:
 
 - Understand the meaning of a MoonBit error code or compiler error message.
 - Diagnose the most likely causes based on code snippets and context.
-- Get a step‑by‑step plan to resolve the error, including code‑level changes.
+- Get a step-by-step plan to resolve the error, including code-level changes.
 - Prioritize which errors to fix first when there are multiple issues.
 
 It complements, but does not replace, the separate skill that reviews code
 against the language specification. This skill is focused on **errors** and
 **troubleshooting**.
 
-## What resources to rely on
+## Resources
 
-When using this skill, you MUST rely on the MoonBit error resources shipped
-with the skill instead of guessing.
+When using this skill, rely on the resource files shipped with the skill
+instead of guessing. Read the relevant resource before forming a hypothesis.
 
-At minimum, the following resource files will be available:
+### `resources/index.md` — Error Code Index
 
-- `resources/index.md`  
-  An index of MoonBit error codes and categories, with links to detailed entries.
+A categorized index of all ~235 MoonBit error codes, organized by range and
+theme for quick lookup.
 
-- `resources/error-codes/*.md`  
-  One file per error code (for example `E0001.md`, `E0002.md`), containing:
-  - The official description of the error.
-  - Typical causes.
-  - Minimal examples that reproduce the error.
-  - Recommended fixes.
+| Section | Contents |
+|---------|----------|
+| E0xxx Warnings | Unused items, code quality, deprecated syntax, FFI/WASM warnings |
+| E1xxx Internal | Internal compiler errors (ICE) |
+| E3xxx Syntax | Lexing, parsing, signature, and syntax errors |
+| E4xxx Type/Semantic | Type mismatches, visibility, traits, methods, functions, modules |
 
-- `resources/troubleshooting.md`  
-  General troubleshooting strategies, checklists, and decision trees for
-  handling multiple errors, cascading failures, and ambiguous messages.
+Each entry includes the warning/error name and a one-line description.
+Use this as the starting point to locate the right `error_codes/EXXXX.md` file.
 
-If you are unsure about an error, look it up in `error-codes/*.md` via
-`index.md` before forming a hypothesis.
+Source: derived from `docs/moonbit-docs/error_codes/` (official MoonBit docs).
+
+### `resources/error_codes/*.md` — Per-Error-Code Details
+
+One file per error code (e.g. `E0001.md`, `E4014.md`), containing:
+- The official description of the error.
+- Typical causes and explanations.
+- Minimal code examples that reproduce the error.
+- Recommended fixes.
+
+There are ~235 files covering the full range of MoonBit compiler diagnostics.
+
+Source: identical copies from `docs/moonbit-docs/error_codes/` (official MoonBit docs).
+
+### `resources/troubleshooting.md` — Diagnosis Strategies
+
+Practical strategies for investigating errors, organized as:
+
+| Section | What it covers |
+|---------|---------------|
+| Quick Triage | Decision tree: error code present? runtime error? build system error? |
+| Priority Rules | Fix syntax errors first, fix earliest error first, fix root causes first |
+| Error Categories | First actions for E0xxx warnings, E3xxx syntax, E4xxx type/semantic |
+| Cascading Error Strategy | 4 patterns: missing import, type definition, error handling, visibility |
+| Common Patterns | "Code used to work", "copied from tutorial", "types look the same" |
+| Error Handling Reference | `type!`, `raise`, `try`/`catch`, `try?`, `!!`, common mistakes table |
+| Build & Toolchain | `moon.pkg.json` problems, test file conventions (`_test.mbt` vs `_wbtest.mbt`) |
+
+Source: compiled from `docs/moonbit-docs/` official language documentation and error code descriptions.
 
 ## How to handle an error report
 
-When the user provides error messages, logs, or screenshots, follow this
-process:
+When the user provides error messages, logs, or screenshots:
 
-1. Extract the key information  
-   - Identify all MoonBit error codes present (e.g., `E0001`, `E0123`).
-   - Capture the full error message text, the file name, and the line/column
-     if available.
-   - Note any repeated or cascading errors that may have a common root cause.
+### 1. Quick triage
 
-2. Look up each error code  
-   - Use `resources/index.md` to find the corresponding `error-codes/*.md`
-     entry for each code.
-   - Read the official description, typical causes, and examples for that code.
-   - If multiple codes are present, look for relationships (e.g., one error
-     is a consequence of another).
+Read `resources/troubleshooting.md` (Quick Triage section) and classify:
+- **Error code present** → look up in `resources/index.md` → read `resources/error_codes/EXXXX.md`
+- **Runtime error** → check for panic, abort, uncaught raise; look at stack trace
+- **Build system error** → check `moon.pkg.json`, `moon.mod.json`
 
-3. Form hypotheses about the causes  
-   - Based on the user’s code snippet and the error documentation, propose
-     1–3 plausible causes for each error.
-   - Make it explicit when you are not fully certain, and clearly distinguish
-     between “very likely” and “less likely” causes.
+### 2. Extract and look up error codes
 
-4. Propose a resolution plan  
-   For each error (or group of related errors):
+- Identify all error codes (e.g. `E0001`, `E4014`).
+- Capture file names, line/column numbers, and full error text.
+- Read the corresponding `resources/error_codes/EXXXX.md` for each code.
+- Note any relationships between errors (one causing another).
 
-   - Explain, in plain language, what the error means.
-   - Describe why it is happening in the user’s specific context.
-   - Provide a **step‑by‑step plan** to fix it, which may include:
-     - Changes to specific lines of code.
-     - Adjustments to types, traits, or module structure.
-     - Build or toolchain configuration fixes, if relevant.
-   - When appropriate, show a small before/after code snippet to illustrate
-     the fix.
+### 3. Check for cascading errors
 
-5. Prioritize the fixes  
-   - If there are many errors, indicate which ones should be addressed first
-     (typically the ones that are root causes).
-   - Suggest an order of operations, so the user can re‑build and re‑run
-     after each key fix.
+Read `resources/troubleshooting.md` (Cascading Error Strategy section).
+Common cascading patterns:
+- **Missing import** (E4020) → type mismatches (E4014) → method not found (E4015)
+- **Wrong type definition** → multiple E4014/E4015/E4018 errors
+- **Missing `raise` in signature** → unused try (E0023) → return type mismatch (E4014)
+- **Visibility too restrictive** → E4001 → construction/pattern matching fails externally
+
+When cascading is detected, identify and fix the **root cause** first.
+
+### 4. Form hypotheses
+
+- Propose 1-3 plausible causes for each error based on the code and error docs.
+- Distinguish between "very likely" and "less likely" causes.
+- Be explicit when uncertain.
+
+### 5. Propose a resolution plan
+
+For each error (or group of related errors):
+- Explain in plain language what the error means.
+- Describe why it is happening in the user's specific context.
+- Provide a **step-by-step plan** with concrete code changes.
+- Show before/after code snippets when helpful.
+
+### 6. Prioritize fixes
+
+When multiple errors are present:
+1. Fix **syntax errors (E3xxx)** first — they prevent parsing and cause cascading type errors.
+2. Fix the **earliest error** in the file — later errors often depend on it.
+3. Fix **root-cause errors** — if error A causes error B, fix A first.
+
+Suggest an order so the user can rebuild after each key fix.
 
 ## How to use other skills together
 
-- If you find that the error is caused by code that does not follow the
-  language specification or idiomatic patterns, you may recommend using the
-  separate “MoonBit code evaluation” skill for a more thorough review.
-- However, in this skill you should still provide immediate, concrete fixes
-  that resolve the specific error at hand.
-
-Do NOT delegate all work to other skills; always give a direct answer for
-the given errors.
+- If the error stems from code that doesn't follow MoonBit idioms, recommend
+  the "MoonBit code evaluation" skill for a thorough review.
+- Always provide immediate, concrete fixes for the specific error at hand —
+  do not delegate all work to other skills.
 
 ## What NOT to do
 
-- Do NOT invent error codes or meanings that are not documented in the
-  provided resources.
-- Do NOT suggest features or flags that do not exist in MoonBit.
-- Do NOT only restate the error message; always add your own explanation
-  and a concrete resolution plan.
-- Do NOT change the behavior of the program in major ways unless the user
-  explicitly allows such changes; if a behavior change is required, explain
-  why.
-
-## Example invocations
-
-Use this skill when you receive prompts like:
-
-- “/moonbit-investigating-errors MoonBitのコンパイル時に `E0123` が出ます。このエラーの意味と直し方を教えてください。ログを貼ります。”
-- “/moonbit-investigating-errors 複数のエラーコードが出ていて、どれから直せば良いか分かりません。原因と優先度を整理してほしいです。”
-- “/moonbit-investigating-errors このコードをビルドすると error_codes にあるエラーが出続けるので、原因を特定して修正手順を提案してほしいです。”
-- “/moonbit-investigating-errors MoonBit のエラーメッセージの意味が分からないので、日本語で解説してもらえますか？”
-
-When responding, always:
-
-- Tie your explanation back to the error code documentation.
-- Make your reasoning explicit.
-- Provide concrete next steps the user can take to resolve the errors.
+- Do NOT invent error codes or meanings not documented in the resources.
+- Do NOT suggest MoonBit features or flags that do not exist.
+- Do NOT only restate the error message; always add explanation and a
+  concrete resolution plan.
+- Do NOT change program behavior in major ways unless the user explicitly
+  allows it; explain why if a behavior change is required.
