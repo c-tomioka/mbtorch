@@ -1,0 +1,7 @@
+// import {
+//   "username/mbtorch" @lib,
+// }
+
+options(
+  "is-main": true,
+)
