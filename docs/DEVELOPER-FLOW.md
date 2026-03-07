@@ -1,261 +1,191 @@
-# 開発フローメモ
+# DEVELOPER-FLOW （開発フロー）
 
-このドキュメントは、mbtorch プロジェクトで **AI 中心 (Claude Code Plan モード ＋ Agent Skills)** による開発を行うための標準フローをまとめたものです。  
-tensor / autograd / nn などの各モジュールを、ほぼ同じパターンで実装・テストしていくことを想定しています。
-
-***
-
-## 全体像：1 モジュール開発の標準フロー
-
-1. Plan モードでモジュールのゴールと作業ステップを決める  
-2. mbtorch 系スキルで API・内部設計・TDD 方針を固める  
-3. 実装・テスト・サンプル・ドキュメントを段階的に整える  
-4. moonbit-* スキルで MoonBit 言語仕様／エラー観点から仕上げる
-
-この 1〜4 を、tensor / autograd / nn など個々のモジュールに対して繰り返す。
+MbTorch では、**1 モジュールごとに同じ開発サイクル**を回すことを基本とします。  
+ここでは、例として `core/tensor` に基本テンソル演算（`add`, `mul`, `matmul`）を追加する場合のフローを示します。
 
 ***
 
-## 1. Plan モードでモジュールごとの計画を作る
+## 全体像（1 モジュール分のサイクル）
 
-### 1-1. Plan モードの目的
+1. アーキテクチャ確認  
+   → `mbtorch-architecture` ＋ `CLAUDE.md`  
 
-- `.claude/CLAUDE.md` と `.claude/skills/` の SKILL.md を読ませた上で、  
-  - どのファイルを触るか  
-  - どのスキルを使うか  
-  - どんな順番で実装・テスト・ドキュメント化するか  
-  を **plan.md** のような形で整理させる。
+2. テスト設計（TDD）  
+   → `mbtorch-tdd`  
 
-### 1-2. 典型的な指示例（tensor モジュール）
+3. API 形状の確認（必要なら）  
+   → `mbtorch-api-design`  
 
-CLI から Plan モードでプロジェクトルートに入り、次のように指示するイメージ:
+4. 実装（必要に応じて言語仕様・エラー調査）  
+   → 通常実装 ＋ `moonbit-evaluating-code` / `moonbit-investigating-errors`  
 
-```text
-このリポジトリで tensor モジュールの最初のバージョン（MVP）を実装したい。
-
-前提:
-- .claude/CLAUDE.md と .claude/skills/ 配下の SKILL.md を全て読んで、
-  mbtorch プロジェクト全体の設計方針と各スキルの役割を理解してください。
-- 既存の mbtorch.mbt, mbtorch_test.mbt, mbtorch_wbtest.mbt,
-  cmd/main/main.mbt なども読み、tensor がどこに位置づくかを把握してください。
-
-やってほしいこと:
-- 以下を含む plan.md（または同等の計画）を作成してください:
-  - tensor モジュール MVP のゴールの定義
-  - 影響するファイル一覧
-  - 実装ステップ（API設計 → 型/内部設計 → 実装 → テスト → ドキュメント）
-  - 各ステップで利用するスキル
-    (例: /mbtorch-api-design, /mbtorch-architecture, /mbtorch-tdd,
-         /mbtorch-docs, /moonbit-evaluating-code, /moonbit-investigating-errors)
-- まだコードは編集せず、「読む」「考える」「計画を書く」に専念してください。
-```
-
-Plan モードでは、まず **仕様理解と計画作成** に集中させる。  
-コード編集は、Plan でステップが固まってから行う。
+5. ドキュメント・examples・整理  
+   → `mbtorch-docs` ＋ `mbtorch-examples` ＋（必要に応じて）`mbtorch-refactor`  
 
 ***
 
-## 2. mbtorch 系スキルで設計と TDD を固める
+## 1. どこに置くか決める（アーキテクチャ）
 
-Plan ができたら、そのステップに沿って mbtorch-* スキルを呼んでいく。
-
-### 2-1. API 設計（/mbtorch-api-design）
-
-目的: tensor / autograd / nn などの **パブリック API** を先に決める。
-
-指示例:
+まず、「どのディレクトリ・ファイルに実装を置くか」を決めます。
 
 ```text
-/mbtorch-api-design
-
-tensor モジュールの MVP API を設計してください。
-前提:
-- スカラー/1D/2D の基本演算（加算・乗算・ブロードキャスト）だけに絞ります。
-- MoonBit で自然な API として設計してください。
-- 既存の mbtorch.mbt と整合性が取れるようにしてください。
-
-出力してほしいもの:
-- 代表的なユースケースとサンプル呼び出しコード
-- パブリック API 関数一覧（名前・シグネチャ・簡単な説明）
-- 必要な型（struct や trait など）の一覧
+/plan
+スキル: mbtorch-architecture, mbtorch-tdd
+内容:
+core/tensor に「基本テンソル演算（add, mul, matmul）」を実装したいです。
+どのディレクトリ・ファイルに何を追加すべきか、
+既存構造に沿って簡単にプランを作ってください。
 ```
 
-### 2-2. 内部アーキテクチャ設計（/mbtorch-architecture）
+このステップで:
 
-目的: API を支える **内部構造・ファイル構成** を決める。
-
-指示例:
-
-```text
-/mbtorch-architecture
-
-さきほど決めた tensor の API を実装するための内部構造を設計してください。
-
-要件:
-- どのファイルに何を書くか（mbtorch.mbt と分離するか、tensor.mbt を作るかなど）
-- struct / trait / helper 関数の役割分担
-- 他の mbtorch モジュールとの依存関係の制約（循環を避ける方針など）
-```
-
-### 2-3. TDD 方針の決定（/mbtorch-tdd）
-
-目的: **テストケースとテストファイル構成** を先に決める。
-
-指示例:
-
-```text
-/mbtorch-tdd
-
-tensor モジュールの MVP API を TDD で実装するためのテスト方針を作ってください。
-
-前提:
-- 既存の mbtorch_test.mbt / mbtorch_wbtest.mbt を参照し、
-  blackbox / whitebox テストの使い分けを踏襲してください。
-
-出力してほしいもの:
-- テストケース一覧（入力 / 期待される出力）
-- どのテストをどのファイルに書くか（blackbox/whitebox）
-- 実装との進め方（テスト→実装の順序）に関する簡単な指針
-```
+- `core/tensor/types.mbt`, `core/tensor/ops_basic.mbt` などのファイル案を決める  
+- `CLAUDE.md` に書かれたレイヤリングルールを再確認する  
 
 ***
 
-## 3. 実装・テスト・ドキュメントのサイクル
+## 2. 先にテストを書く（mbtorch-tdd）
 
-### 3-1. 実装（必要に応じて /mbtorch-refactor）
-
-目的: 設計済みの API/内部構造/TDD 方針に従って実装を進める。
-
-指示例:
+次に、**実装より先にテストだけ**を書きます（TDD）。
 
 ```text
-上で決めた tensor の API とアーキテクチャ、TDD 方針に従って、
-まずは core 部分（構造体定義と基本の加算・乗算）を実装してください。
-
-要件:
-- 既存の mbtorch.mbt / mbtorch_test.mbt / mbtorch_wbtest.mbt と整合する形にしてください。
-- 差分を分かりやすく出してください（どのファイルのどの位置に何を追加・変更するか）。
-
-必要に応じて /mbtorch-refactor スキルを使い、
-既存コードとの統合・リファクタリングも提案してください。
+/plan
+スキル: mbtorch-tdd, mbtorch-architecture
+内容:
+core/tensor/ops_basic.mbt に add, mul, matmul を実装する前提で、
+tests/ 配下に置くべきテストファイル名とテストケース案を出してから、
+実際のテストコードを書いてください。
+まだ本体実装は書かないでください。
 ```
 
-### 3-2. テスト実装（/mbtorch-tdd）
+ここで:
 
-目的: 事前に決めたテストケースを具体的なテストコードに落とす。
-
-指示例:
-
-```text
-/mbtorch-tdd
-
-tensor 実装に対して、先ほど計画したテストケースを
-mbtorch_test.mbt および mbtorch_wbtest.mbt に追加してください。
-
-要件:
-- 各テストごとに、簡単な説明コメントを付けてください。
-- 既存のテストスタイルを踏襲しつつ、必要に応じて整理・リファクタも提案してください。
-```
-
-### 3-3. サンプルコードとドキュメント（/mbtorch-examples, /mbtorch-docs）
-
-目的: 利用者視点の **example と README** を整える。
-
-サンプルコード（/mbtorch-examples）:
-
-```text
-/mbtorch-examples
-
-tensor モジュールの簡単な使用例を 2〜3 個作成してください。
-ターゲット:
-- README.mbt.md に載せられるレベルのサンプル
-- スカラー/1D/2D の基本演算を一通り見せるもの
-```
-
-ドキュメント（/mbtorch-docs）:
-
-```text
-/mbtorch-docs
-
-tensor モジュールの API と制約を README.mbt.md に追記してください。
-
-要件:
-- 初心者にも分かる概要
-- 代表的な API とその使い方
-- 制約や注意点があれば明示
-```
+- テストファイル名（例: `tests/core_tensor_ops.mbt`）を決める  
+- 「shape と値の検証」「matmul の shape 」「エラーケース」などのテストを用意する  
 
 ***
 
-## 4. MoonBit 言語仕様・エラー観点での仕上げ
+## 3. API デザインを軽くチェック（必要なとき）
 
-### 4-1. 言語仕様・スタイルチェック（/moonbit-evaluating-code）
+新しい公開 API の形（コンストラクタやメソッド名など）を固めたいときは、API 設計スキルを併用します。
 
-目的: 実装済みコードが **MoonBit 言語仕様と公式 example に沿っているか** を確認する。
+```text
+/plan
+スキル: mbtorch-api-design, mbtorch-tdd
+内容:
+Tensor の基本コンストラクタと add/mul/matmul の API を設計したいです。
+まずはユーザー視点のサンプルコードを書いてから、
+最終的な関数シグネチャ案を出してください。
+その後、さきほどのテストコードを API に合わせて調整してください。
+```
 
-指示例:
+ポイント:
+
+- 「サンプルコード → シグネチャ → テスト」の順でそろえる  
+- 後で README や `examples/` にも流用しやすくなる  
+
+***
+
+## 4. 実装を書く（＋ MoonBit 言語チェック・エラー調査）
+
+テストが赤の状態になったら、テストを通すための最小実装を書かせます。
+
+```text
+/plan
+スキル: mbtorch-tdd, mbtorch-architecture
+内容:
+すでに作成した tests/core_tensor_ops.mbt が赤の状態です。
+このテストを通すために必要な最小限の実装を
+core/tensor/types.mbt と core/tensor/ops_basic.mbt に追加してください。
+実装後に必要なリファクタ案があれば separate step として提案に留めてください。
+```
+
+### MoonBit 言語仕様の確認が必要なとき
+
+実装が MoonBit として正しいか不安な場合は、言語評価スキルを使います。
 
 ```text
 /moonbit-evaluating-code
-
-tensor 関連の MoonBit コード（mbtorch.mbt, tensor 関連のテストファイルなど）を
-すべてレビューしてください。
-
-やってほしいこと:
-- MoonBit の言語仕様と公式 example に沿っているかを確認
-- 文法・型・モジュール構成の観点で問題点があれば列挙
-- 必要なら具体的な修正差分（before/after のコード）を提示
-- 非推奨または非イディオマティックな書き方があれば、より良い書き方を提案
+この core/tensor/ops_basic.mbt の実装が MoonBit の言語仕様的に正しいか、
+必要なら修正コードを提案してください。
 ```
 
-### 4-2. エラー調査・対応計画（/moonbit-investigating-errors）
+### コンパイルエラーが出たとき
 
-目的: `moon build` やテスト実行で出る **エラーの原因と対応手順** を整理する。
-
-指示例:
+コンパイルエラーの意味や対処を知りたい場合は、エラー調査スキルを使います。
 
 ```text
 /moonbit-investigating-errors
+MoonBit のビルドで以下のエラーが出ます。
+エラーコードの意味と具体的な修正手順を教えてください。
 
-moon build（またはテスト実行）のログを貼るので、
-出ている MoonBit のエラーコードとメッセージについて:
-
-- エラーごとの意味の説明
-- 考えられる原因候補（1〜3 個）
-- 修正のためのステップバイステップの対応計画
-
-を出してください。
+<エラーログ貼り付け>
 ```
-
-典型的な流れ:
-
-1. `moon build` / テスト実行 → エラー発生  
-2. ログを `/moonbit-investigating-errors` に渡して原因と対応方針を出してもらう  
-3. 対応方針に沿って実装を修正  
-4. 再度 `/moonbit-evaluating-code` で仕上げチェック  
-5. 必要であれば Plan モードに戻り、「tensor の次の拡張」への計画に反映する
 
 ***
 
-## 5. 1 モジュール開発サイクルのまとめ
+## 5. ドキュメント・examples・リファクタ
 
-tensor / autograd / nn など、各モジュール開発の最小サイクルは次の通り:
+機能が動くようになったら、「どう見せるか」と「どう整理するか」を仕上げます。
 
-1. **Plan**  
-   - Plan モードで「モジュール MVP のゴール・ステップ・使用スキル」を整理する。
+### 5-1. README / docs を更新する（mbtorch-docs）
 
-2. **Design**  
-   - `/mbtorch-api-design` で API 設計  
-   - `/mbtorch-architecture` で内部構造設計  
-   - `/mbtorch-tdd` でテスト方針
+```text
+/plan
+スキル: mbtorch-docs
+内容:
+Tensor の基本演算（add, mul, matmul）とコンストラクタを追加しました。
+README のどこを更新すべきか提案し、
+簡単なコード例付きで更新案を出してください。
+```
 
-3. **Implement & Test**  
-   - 実装（必要に応じて `/mbtorch-refactor`）  
-   - `/mbtorch-tdd` でテストコード実装  
-   - `/mbtorch-examples`, `/mbtorch-docs` でサンプルとドキュメント
+### 5-2. example を追加する（mbtorch-examples）
 
-4. **Polish**  
-   - `/moonbit-evaluating-code` で MoonBit 的な正しさとスタイルの最終チェック  
-   - `/moonbit-investigating-errors` でエラー原因と対応計画を整理・修正
+```text
+/plan
+スキル: mbtorch-examples
+内容:
+core/tensor の基本機能を試せる最小の CLI example を
+examples/basic_tensor_ops/ として追加したいです。
+ディレクトリ構成と main.mbt, README.md の内容案を書いてください。
+```
 
-この 1〜4 を繰り返しつつ、適宜 Plan モードで全体アーキテクチャやロードマップを更新することで、AI 主体の開発フローを安定して回すことを目指す。
+### 5-3. コードが膨らんできたら整理する（mbtorch-refactor）
+
+しばらく開発を進めて `core/tensor` 周辺が肥大化してきたら、リファクタリングスキルを使います。
+
+```text
+/plan
+スキル: mbtorch-refactor, mbtorch-architecture, mbtorch-tdd
+内容:
+core/tensor 関連のコードが肥大化してきたので、
+mbtorch-refactor のルールに従って問題点の整理と
+安全な分割プラン（ファイル構成と手順）を出してください。
+その後、最初の小さなリファクタステップだけコード変更案を出してください。
+```
+
+***
+
+## まとめ：1 モジュール開発の「型」
+
+Tensor の基本演算モジュールを例にした場合、典型的なフローは次の通りです。
+
+1. `/plan + mbtorch-architecture`  
+   → 実装場所とファイル名を決める  
+
+2. `/plan + mbtorch-tdd`  
+   → テストファイル＋テストコードを書く（実装はまだ）  
+
+3. （必要なら）`/plan + mbtorch-api-design`  
+   → API 形状とサンプルコードを固める  
+
+4. `/plan + mbtorch-tdd`（＋ `moonbit-evaluating-code` / `moonbit-investigating-errors`）  
+   → 実装してテストを通す  
+
+5. `/plan + mbtorch-docs` ＋ `/plan + mbtorch-examples`  
+   → README / examples を更新する  
+
+6. 規模が大きくなってきたら `/plan + mbtorch-refactor`  
+   → 構造の整理・分割を行う  
+
+この「型」を `core/tensor` で一度回してみて、慣れてきたら `core/autograd`, `nn`, `optim`, `io` でも同じパターンを適用していきます。
