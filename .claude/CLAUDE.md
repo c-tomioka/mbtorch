@@ -10,6 +10,11 @@ The main goals are:
 You (Claude) will frequently be used with **plan mode** and **skills**.  
 Always read and follow this file **before** making any changes.[3][1]
 
+For general MoonBit project conventions (package layout, test file naming,
+tooling commands), see `AGENTS.md`.  
+For MbTorch-specific architecture and workflow, this `CLAUDE.md` and
+`.claude/skills` take precedence.
+
 ***
 
 ## 1. Tech stack & scope
