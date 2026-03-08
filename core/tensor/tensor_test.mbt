@@ -272,3 +272,24 @@ test "from_array_with_shape creates correct tensor" {
   assert_eq(t.get([1, 0]), 4.0)
   assert_eq(t.get([1, 2]), 6.0)
 }
+
+///|
+test "tensor div computes element-wise division" {
+  let a = @tensor.Tensor::from_array([10.0, 9.0, 8.0])
+  let b = @tensor.Tensor::from_array([2.0, 3.0, 4.0])
+  let result = a.div(b)
+  assert_eq(result.get([0]), 5.0)
+  assert_eq(result.get([1]), 3.0)
+  assert_eq(result.get([2]), 2.0)
+}
+
+///|
+test "tensor sqrt computes element-wise square root" {
+  let t = @tensor.Tensor::from_array([4.0, 9.0, 16.0, 0.0])
+  let result = t.sqrt()
+  assert_eq(result.shape(), [4])
+  assert_eq(result.get([0]), 2.0)
+  assert_eq(result.get([1]), 3.0)
+  assert_eq(result.get([2]), 4.0)
+  assert_eq(result.get([3]), 0.0)
+}

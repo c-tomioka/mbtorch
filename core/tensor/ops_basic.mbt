@@ -65,3 +65,28 @@ pub fn Tensor::sum(self : Tensor) -> Tensor {
   }
   { data_: [total], shape_: [] }
 }
+
+///|
+/// Element-wise division.
+pub fn Tensor::div(self : Tensor, other : Tensor) -> Tensor {
+  guard self.shape_ == other.shape_ else {
+    abort("div: shape mismatch \{self.shape_} vs \{other.shape_}")
+  }
+  let n = self.data_.length()
+  let result = Array::make(n, 0.0)
+  for i = 0; i < n; i = i + 1 {
+    result[i] = self.data_[i] / other.data_[i]
+  }
+  { data_: result, shape_: self.shape_.copy() }
+}
+
+///|
+/// Element-wise square root.
+pub fn Tensor::sqrt(self : Tensor) -> Tensor {
+  let n = self.data_.length()
+  let result = Array::make(n, 0.0)
+  for i = 0; i < n; i = i + 1 {
+    result[i] = self.data_[i].sqrt()
+  }
+  { data_: result, shape_: self.shape_.copy() }
+}
