@@ -164,3 +164,16 @@ test "training loss decreases mlp" {
   let final_loss_val = final_loss.data().get([])
   assert_true(final_loss_val < initial_loss_val)
 }
+
+///|
+test "linear from_tensors creates working layer" {
+  let w = @tensor.Tensor::from_array_2d([[1.0, 0.0, -1.0], [0.0, 1.0, 2.0]])
+  let b = @tensor.Tensor::from_array([0.1, 0.2, 0.3])
+  let linear = @nn.Linear::from_tensors(w, b)
+  let x = @autograd.Variable::new(@tensor.Tensor::from_array_2d([[2.0, 3.0]]))
+  let output = linear.forward(x)
+  // [2,3] @ [[1,0,-1],[0,1,2]] + [0.1,0.2,0.3] = [2.1, 3.2, 4.3]
+  assert_eq(output.data().get([0, 0]), 2.1)
+  assert_eq(output.data().get([0, 1]), 3.2)
+  assert_eq(output.data().get([0, 2]), 4.3)
+}

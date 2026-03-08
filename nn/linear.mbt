@@ -36,6 +36,31 @@ pub fn Linear::forward(
 }
 
 ///|
+/// Creates a Linear layer from pre-existing weight and bias tensors.
+/// weight shape must be [in_features, out_features], bias shape must be [out_features].
+pub fn Linear::from_tensors(
+  weight_data : @tensor.Tensor,
+  bias_data : @tensor.Tensor,
+) -> Linear {
+  let ws = weight_data.shape()
+  let bs = bias_data.shape()
+  guard ws.length() == 2 else {
+    abort("Linear::from_tensors: weight must be 2D, got \{ws.length()}D")
+  }
+  guard bs.length() == 1 else {
+    abort("Linear::from_tensors: bias must be 1D, got \{bs.length()}D")
+  }
+  guard ws[1] == bs[0] else {
+    abort(
+      "Linear::from_tensors: weight out_features \{ws[1]} != bias size \{bs[0]}",
+    )
+  }
+  let weight = @autograd.Variable::new(weight_data, requires_grad=true)
+  let bias = @autograd.Variable::new(bias_data, requires_grad=true)
+  { weight, bias }
+}
+
+///|
 pub fn Linear::parameters(self : Linear) -> Array[@autograd.Variable] {
   [self.weight, self.bias]
 }

@@ -29,50 +29,39 @@ MbTorch focuses on small and mid-sized neural networks and edge-centric tasks, f
 - Local personalization and LoRA-style fine-tuning of imported models  
 - Educational ML projects and interactive browser demos  
 
+## Project Status
+
+MbTorch has reached its **first MVP**: tensors, reverse-mode autograd, `Linear`/MLP layers, SGD optimizer, and JSON-based model serialization are all implemented and tested (78 tests passing). You can define, train, save, and restore a small neural network entirely in MoonBit today.
+
+**Next up:** ONNX import (subset), safetensors weight loading, binary `.mbt` format, Adam optimizer, and additional layer types.
+
 ## Features
 
-Implemented and planned features:
+### Implemented ✅
 
-- **Tensor Operations** ✅: Multi-dimensional tensors with element-wise ops (add, mul), matrix multiplication (matmul), transpose, sum, and more
-- **Automatic Differentiation** ✅: Reverse-mode autograd engine with `Variable` wrapper, supporting add/sub/mul/matmul/sum/relu backward passes
-- **Neural Network Layers** ✅: `Linear` layer with autograd-tracked forward pass; composable into multi-layer MLPs with ReLU activation
-- **Optimizers** ✅: `SGD` optimizer with `step()` and `zero_grad()`; Adam is planned
-- **Data Utilities** (planned): Mini-batching helpers and simple preprocessing utilities
-- **Model I/O** (planned):
-  - Import from **ONNX** for graph structure and operators[9][3]
-  - Import from **safetensors** for efficient, safe weight loading[8][10]
-  - Export and load a **MbTorch-native format** (e.g. `.mbt`) for compact MoonBit-native serialization
-- **Edge & Browser Runtime** (planned): WASM-targeted execution paths for inference and lightweight fine-tuning on edge and browser environments[7][1]
+- **Tensor Operations** — Multi-dimensional tensors with add, sub, mul, scale, matmul, transpose, sum; constructors for scalar, 1D, 2D, zeros, ones, rand
+- **Automatic Differentiation** — Reverse-mode autograd engine (`Variable`, `backward`) with gradient support for add/sub/mul/matmul/sum/relu/expand_rows; includes `grad_check` for numerical verification
+- **Neural Network Layers** — `Linear` layer (weight, bias, forward, `from_tensors` for deserialization); composable into multi-layer MLPs with ReLU activation
+- **Optimizers** — `SGD` optimizer with `new`, `step()`, `zero_grad()`
+- **Model I/O** — Serialize/deserialize models to `.mbt`-style JSON via `serialize_model` / `deserialize_model`; roundtrip-tested with trained models
+- **Examples** — 4 working demos: `basic_tensor_ops`, `basic_autograd`, `basic_mlp` (training), `save_mlp` (serialization roundtrip)
+
+### Planned
+
+- **ONNX Import** — Graph structure and operator import for small MLPs/CNNs[9][3]
+- **safetensors Import** — Efficient, safe weight loading from HuggingFace ecosystem[8][10]
+- **Binary `.mbt` Format** — Compact binary serialization (metadata + packed tensor buffer)
+- **Additional Optimizers** — Adam, learning rate schedulers
+- **Additional Layers** — Conv2d, attention, batch normalization
+- **Data Utilities** — Mini-batching helpers and preprocessing
+- **Edge & Browser Runtime** — WASM-targeted inference and lightweight fine-tuning[7][1]
 
 ## Quick Start
 
 > MbTorch is in early development. APIs are experimental and subject to change.
 
 ```moonbit
-// Forward + backward with autograd (this code runs today!)
-fn main {
-  let x = @autograd.Variable::new(
-    @tensor.Tensor::from_array([1.0, 2.0, 3.0]),
-    requires_grad=true,
-  )
-  let w = @autograd.Variable::new(
-    @tensor.Tensor::from_array([0.5, -1.0, 2.0]),
-    requires_grad=true,
-  )
-
-  // loss = sum(x * w)
-  let loss = x.mul(w).sum()
-  loss.backward()
-
-  println(x.grad().unwrap())  // Tensor(shape=[3], data=[0.5, -1, 2])
-  println(w.grad().unwrap())  // Tensor(shape=[3], data=[1, 2, 3])
-}
-```
-
-Train an MLP with `SGD` optimizer:
-
-```moonbit
-// 2-layer MLP training with SGD (this code runs today!)
+// Train a 2-layer MLP with SGD (this code runs today!)
 fn main {
   let l1 = @nn.Linear::new(2, 4, seed=42UL)
   let l2 = @nn.Linear::new(4, 1, seed=123UL)
@@ -98,7 +87,12 @@ fn main {
 }
 ```
 
-See `examples/` for more working demos. Model I/O (`.mbt`, ONNX, safetensors) is under active design.
+More examples:
+
+- [`basic_mlp`](examples/basic_mlp/) — Train an MLP and watch the loss decrease
+- [`save_mlp`](examples/save_mlp/) — Train, serialize to JSON, deserialize, and verify output parity
+- [`basic_autograd`](examples/basic_autograd/) — Forward + backward with `Variable`
+- [`basic_tensor_ops`](examples/basic_tensor_ops/) — Tensor constructors and numeric ops
 
 ## Module Structure
 
@@ -111,7 +105,7 @@ mbtorch/
 │   └── autograd/   # Reverse-mode autograd engine (Variable, backward)
 ├── nn/             # Neural network layers (Linear, ReLU)
 ├── optim/          # Optimization algorithms (SGD)
-├── io/             # Model import/export: ONNX, safetensors, .mbt (planned)
+├── io/             # Model import/export: .mbt JSON (✅), ONNX, safetensors (planned)
 ├── examples/       # Working demos
 └── tests/          # Unit and integration tests
 ```
@@ -155,7 +149,8 @@ Goal: Establish a minimal but solid core in MoonBit, with TDD and CI as the defa
 - ~~Autograd engine (reverse-mode) for scalars, 1D, and 2D tensors~~ ✅
 - ~~Basic neural network layers: `Linear`/`Dense`, common activations (ReLU, etc.)~~ ✅
 - ~~Optimizers: SGD~~ ✅ / Adam (remaining)
-- ~~Synthetic-data integration tests where training reduces loss over time~~ ✅ (67 tests passing)
+- ~~Synthetic-data integration tests where training reduces loss over time~~ ✅ (78 tests passing)
+- ~~JSON-based model serialization (`.mbt`-style serialize/deserialize)~~ ✅
 
 ### Phase 2: Model Formats and I/O (3–6 months)
 
@@ -167,12 +162,12 @@ Goal: Make MbTorch interoperable with existing model ecosystems and support its 
 - **safetensors import**  
   - Parse header (JSON) and binary tensor buffer, supporting common dtypes and shapes[8][10]
   - Combine ONNX graphs with safetensors weights to reconstruct pretrained models  
-- **MbTorch-native format (`.mbt`, tentative)**  
-  - Design a simple metadata + binary format (e.g. JSON metadata + packed tensor buffer)  
-  - Implement `save_mbt` / `load_mbt` for MoonBit-native models  
-- User-facing I/O APIs:  
-  - `Model.from_onnx(...)` / `Model.from_safetensors(...)`  
-  - `model.save_mbt(...)` / `Model.load_mbt(...)`  
+- ~~**MbTorch-native format (`.mbt` JSON)**~~ ✅
+  - ~~`serialize_model` / `deserialize_model` for JSON-based model I/O~~ ✅
+  - Binary `.mbt` format (metadata + packed tensor buffer) — planned
+- User-facing I/O APIs:
+  - `Model.from_onnx(...)` / `Model.from_safetensors(...)`
+  - Binary `save_mbt(...)` / `load_mbt(...)`  
 
 ### Phase 3: Browser, Edge & Fine-Tuning UX (6–12 months)
 

@@ -1,0 +1,11 @@
+import {
+  "username/mbtorch/core/tensor",
+  "username/mbtorch/core/autograd",
+  "username/mbtorch/nn",
+  "username/mbtorch/optim",
+  "username/mbtorch/io",
+}
+
+options(
+  "is-main": true,
+)

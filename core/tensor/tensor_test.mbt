@@ -248,3 +248,27 @@ test "rand seed reproducibility" {
   assert_eq(a.get([1]), b.get([1]))
   assert_eq(a.get([2]), b.get([2]))
 }
+
+///|
+test "to_array returns flat data copy" {
+  let t = @tensor.Tensor::from_array_2d([[1.0, 2.0], [3.0, 4.0]])
+  let arr = t.to_array()
+  assert_eq(arr.length(), 4)
+  assert_eq(arr[0], 1.0)
+  assert_eq(arr[1], 2.0)
+  assert_eq(arr[2], 3.0)
+  assert_eq(arr[3], 4.0)
+}
+
+///|
+test "from_array_with_shape creates correct tensor" {
+  let t = @tensor.Tensor::from_array_with_shape(
+    [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    [2, 3],
+  )
+  assert_eq(t.shape(), [2, 3])
+  assert_eq(t.get([0, 0]), 1.0)
+  assert_eq(t.get([0, 2]), 3.0)
+  assert_eq(t.get([1, 0]), 4.0)
+  assert_eq(t.get([1, 2]), 6.0)
+}

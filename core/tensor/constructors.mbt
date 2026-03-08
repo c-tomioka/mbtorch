@@ -53,6 +53,31 @@ pub fn Tensor::fill(shape : Array[Int], value : Double) -> Tensor {
 }
 
 ///|
+/// Returns a copy of the tensor's internal data as a flat Array[Double].
+pub fn Tensor::to_array(self : Tensor) -> Array[Double] {
+  self.data_.copy()
+}
+
+///|
+/// Creates a tensor from flat data and a shape.
+/// Aborts if data length does not match the product of shape dimensions.
+pub fn Tensor::from_array_with_shape(
+  data : Array[Double],
+  shape : Array[Int],
+) -> Tensor {
+  let mut expected = 1
+  for i = 0; i < shape.length(); i = i + 1 {
+    expected = expected * shape[i]
+  }
+  guard data.length() == expected else {
+    abort(
+      "from_array_with_shape: data length \{data.length()} does not match shape \{shape} (expected \{expected})",
+    )
+  }
+  { data_: data.copy(), shape_: shape.copy() }
+}
+
+///|
 /// Simple pseudo-random tensor with values in [-1, 1), using LCG.
 pub fn Tensor::rand(shape : Array[Int], seed? : UInt64 = 42UL) -> Tensor {
   let mut total = 1
