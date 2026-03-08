@@ -34,8 +34,8 @@ MbTorch focuses on small and mid-sized neural networks and edge-centric tasks, f
 Implemented and planned features:
 
 - **Tensor Operations** ✅: Multi-dimensional tensors with element-wise ops (add, mul), matrix multiplication (matmul), transpose, sum, and more
-- **Automatic Differentiation** ✅: Reverse-mode autograd engine with `Variable` wrapper, supporting add/mul/matmul/sum backward passes
-- **Neural Network Layers** (planned): Basic layers such as dense/linear layers and activations
+- **Automatic Differentiation** ✅: Reverse-mode autograd engine with `Variable` wrapper, supporting add/sub/mul/matmul/sum/relu backward passes
+- **Neural Network Layers** ✅: `Linear` layer with autograd-tracked forward pass; composable into multi-layer MLPs with ReLU activation
 - **Optimizers** (planned): Common optimizers like SGD and Adam
 - **Data Utilities** (planned): Mini-batching helpers and simple preprocessing utilities
 - **Model I/O** (planned):
@@ -69,7 +69,35 @@ fn main {
 }
 ```
 
-See `examples/` for more working demos. Neural network layers (`nn`), optimizers (`optim`), and model I/O (`io`) are under active development.
+Train a `Linear` layer with a minimal SGD loop:
+
+```moonbit
+// Minimal training loop (this code runs today!)
+fn main {
+  let linear = @nn.Linear::new(2, 1, seed=42UL)
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]),
+  )
+  let target = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[5.0], [11.0], [17.0]]),
+  )
+
+  for _step = 0; _step < 100; _step = _step + 1 {
+    let pred = linear.forward(x)
+    let diff = pred.sub(target)
+    let loss = diff.mul(diff).sum()  // MSE
+    loss.backward()
+    let params = linear.parameters()
+    for i = 0; i < params.length(); i = i + 1 {
+      let p = params[i]
+      p.set_data(p.data().sub(p.grad().unwrap().scale(0.001)))
+      p.zero_grad()
+    }
+  }
+}
+```
+
+See `examples/` for more working demos. Optimizers (`optim`) and model I/O (`io`) are under active development.
 
 ## Module Structure
 
@@ -80,7 +108,7 @@ mbtorch/
 ├── core/
 │   ├── tensor/     # Tensor types, constructors, and numeric ops
 │   └── autograd/   # Reverse-mode autograd engine (Variable, backward)
-├── nn/             # Neural network layers (planned)
+├── nn/             # Neural network layers (Linear, ReLU)
 ├── optim/          # Optimization algorithms (planned)
 ├── io/             # Model import/export: ONNX, safetensors, .mbt (planned)
 ├── examples/       # Working demos
