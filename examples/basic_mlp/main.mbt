@@ -15,7 +15,11 @@ fn main {
     @tensor.Tensor::from_array_2d([[5.0], [7.0], [8.0]]),
   )
 
-  let lr = 0.001
+  // Optimizer
+  let params = l1.parameters()
+  params.append(l2.parameters())
+  let optimizer = @optim.SGD::new(params, lr=0.001)
+
   for step = 0; step < 100; step = step + 1 {
     // Forward
     let h = l1.forward(x).relu()
@@ -30,20 +34,10 @@ fn main {
       println("step \{step}: loss = \{loss.data()}")
     }
 
-    // Backward
+    // Backward + optimize
     loss.backward()
-
-    // Hand-written SGD update
-    let params = l1.parameters()
-    let p2 = l2.parameters()
-    for i = 0; i < p2.length(); i = i + 1 {
-      params.push(p2[i])
-    }
-    for i = 0; i < params.length(); i = i + 1 {
-      let p = params[i]
-      p.set_data(p.data().sub(p.grad().unwrap().scale(lr)))
-      p.zero_grad()
-    }
+    optimizer.step()
+    optimizer.zero_grad()
   }
   println("Training complete.")
 }

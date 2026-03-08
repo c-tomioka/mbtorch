@@ -36,7 +36,7 @@ Implemented and planned features:
 - **Tensor Operations** ✅: Multi-dimensional tensors with element-wise ops (add, mul), matrix multiplication (matmul), transpose, sum, and more
 - **Automatic Differentiation** ✅: Reverse-mode autograd engine with `Variable` wrapper, supporting add/sub/mul/matmul/sum/relu backward passes
 - **Neural Network Layers** ✅: `Linear` layer with autograd-tracked forward pass; composable into multi-layer MLPs with ReLU activation
-- **Optimizers** (planned): Common optimizers like SGD and Adam
+- **Optimizers** ✅: `SGD` optimizer with `step()` and `zero_grad()`; Adam is planned
 - **Data Utilities** (planned): Mini-batching helpers and simple preprocessing utilities
 - **Model I/O** (planned):
   - Import from **ONNX** for graph structure and operators[9][3]
@@ -69,35 +69,36 @@ fn main {
 }
 ```
 
-Train a `Linear` layer with a minimal SGD loop:
+Train an MLP with `SGD` optimizer:
 
 ```moonbit
-// Minimal training loop (this code runs today!)
+// 2-layer MLP training with SGD (this code runs today!)
 fn main {
-  let linear = @nn.Linear::new(2, 1, seed=42UL)
+  let l1 = @nn.Linear::new(2, 4, seed=42UL)
+  let l2 = @nn.Linear::new(4, 1, seed=123UL)
   let x = @autograd.Variable::new(
-    @tensor.Tensor::from_array_2d([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]),
+    @tensor.Tensor::from_array_2d([[1.0, 1.0], [2.0, 1.0], [1.0, 2.0]]),
   )
   let target = @autograd.Variable::new(
-    @tensor.Tensor::from_array_2d([[5.0], [11.0], [17.0]]),
+    @tensor.Tensor::from_array_2d([[5.0], [7.0], [8.0]]),
   )
 
+  let params = l1.parameters()
+  params.append(l2.parameters())
+  let optimizer = @optim.SGD::new(params, lr=0.001)
+
   for _step = 0; _step < 100; _step = _step + 1 {
-    let pred = linear.forward(x)
+    let pred = l2.forward(l1.forward(x).relu())
     let diff = pred.sub(target)
     let loss = diff.mul(diff).sum()  // MSE
     loss.backward()
-    let params = linear.parameters()
-    for i = 0; i < params.length(); i = i + 1 {
-      let p = params[i]
-      p.set_data(p.data().sub(p.grad().unwrap().scale(0.001)))
-      p.zero_grad()
-    }
+    optimizer.step()
+    optimizer.zero_grad()
   }
 }
 ```
 
-See `examples/` for more working demos. Optimizers (`optim`) and model I/O (`io`) are under active development.
+See `examples/` for more working demos. Model I/O (`.mbt`, ONNX, safetensors) is under active design.
 
 ## Module Structure
 
@@ -109,7 +110,7 @@ mbtorch/
 │   ├── tensor/     # Tensor types, constructors, and numeric ops
 │   └── autograd/   # Reverse-mode autograd engine (Variable, backward)
 ├── nn/             # Neural network layers (Linear, ReLU)
-├── optim/          # Optimization algorithms (planned)
+├── optim/          # Optimization algorithms (SGD)
 ├── io/             # Model import/export: ONNX, safetensors, .mbt (planned)
 ├── examples/       # Working demos
 └── tests/          # Unit and integration tests
@@ -149,12 +150,12 @@ MbTorch is developed with **Test-Driven Development (TDD)** and AI-assisted codi
 
 Goal: Establish a minimal but solid core in MoonBit, with TDD and CI as the default workflow.
 
-- Project layout and build/test tooling set up  
-- Tensor type and core operations (add, mul, matmul, basic reductions)  
-- Autograd engine (reverse-mode) for scalars, 1D, and 2D tensors  
-- Basic neural network layers: `Linear`/`Dense`, common activations (ReLU, etc.)  
-- Optimizers: SGD and Adam  
-- Synthetic-data integration tests where training reduces loss over time  
+- ~~Project layout and build/test tooling set up~~ ✅
+- ~~Tensor type and core operations (add, mul, matmul, basic reductions)~~ ✅
+- ~~Autograd engine (reverse-mode) for scalars, 1D, and 2D tensors~~ ✅
+- ~~Basic neural network layers: `Linear`/`Dense`, common activations (ReLU, etc.)~~ ✅
+- ~~Optimizers: SGD~~ ✅ / Adam (remaining)
+- ~~Synthetic-data integration tests where training reduces loss over time~~ ✅ (67 tests passing)
 
 ### Phase 2: Model Formats and I/O (3–6 months)
 
