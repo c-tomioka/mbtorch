@@ -161,6 +161,7 @@ This repository uses **skills** to give you more detailed instructions for speci
   - MoonBit language evaluation
   - MoonBit error investigation
   - MbTorch I/O (ONNX / safetensors / `.mbt`) guidelines
+  - ADR 作成・更新 (MADR 形式)
 
 When working on a task:
 - Use the relevant skill(s) if available, **in addition to** this file.
