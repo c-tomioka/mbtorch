@@ -134,33 +134,33 @@ fn sigmoid_scalar(x : Double) -> Double {
 
 ///|
 fn get_flat_val(t : @tensor.Tensor, i : Int) -> Double {
-  if t.ndim() == 0 {
-    return t.get([])
+  match t.ndim() {
+    0 => t.get([])
+    1 => t.get([i])
+    _ => {
+      let cols = t.shape()[1]
+      t.get([i / cols, i % cols])
+    }
   }
-  if t.ndim() == 1 {
-    return t.get([i])
-  }
-  let cols = t.shape()[1]
-  t.get([i / cols, i % cols])
 }
 
 ///|
 fn rebuild_tensor(data : Array[Double], shape : Array[Int]) -> @tensor.Tensor {
-  if shape.length() == 0 {
-    return @tensor.Tensor::scalar(data[0])
-  }
-  if shape.length() == 1 {
-    return @tensor.Tensor::from_array(data)
-  }
-  let rows = shape[0]
-  let cols = shape[1]
-  let rows_arr : Array[Array[Double]] = []
-  for r = 0; r < rows; r = r + 1 {
-    let row : Array[Double] = []
-    for c = 0; c < cols; c = c + 1 {
-      row.push(data[r * cols + c])
+  match shape.length() {
+    0 => @tensor.Tensor::scalar(data[0])
+    1 => @tensor.Tensor::from_array(data)
+    _ => {
+      let rows = shape[0]
+      let cols = shape[1]
+      let rows_arr : Array[Array[Double]] = []
+      for r = 0; r < rows; r = r + 1 {
+        let row : Array[Double] = []
+        for c = 0; c < cols; c = c + 1 {
+          row.push(data[r * cols + c])
+        }
+        rows_arr.push(row)
+      }
+      @tensor.Tensor::from_array_2d(rows_arr)
     }
-    rows_arr.push(row)
   }
-  @tensor.Tensor::from_array_2d(rows_arr)
 }
