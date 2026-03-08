@@ -8,6 +8,7 @@ package "username/mbtorch/core/tensor"
 // Types and methods
 type Tensor
 pub fn Tensor::add(Self, Self) -> Self
+pub fn Tensor::fill(Array[Int], Double) -> Self
 pub fn Tensor::from_array(Array[Double]) -> Self
 pub fn Tensor::from_array_2d(Array[Array[Double]]) -> Self
 pub fn Tensor::get(Self, Array[Int]) -> Double
@@ -18,6 +19,8 @@ pub fn Tensor::ones(Array[Int]) -> Self
 pub fn Tensor::scalar(Double) -> Self
 pub fn Tensor::shape(Self) -> Array[Int]
 pub fn Tensor::size(Self) -> Int
+pub fn Tensor::sum(Self) -> Self
+pub fn Tensor::transpose(Self) -> Self
 pub fn Tensor::zeros(Array[Int]) -> Self
 pub impl Add for Tensor
 pub impl Mul for Tensor

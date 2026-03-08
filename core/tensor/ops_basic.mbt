@@ -33,3 +33,12 @@ pub impl Add for Tensor with add(self, other) {
 pub impl Mul for Tensor with mul(self, other) {
   self.mul(other)
 }
+
+///|
+pub fn Tensor::sum(self : Tensor) -> Tensor {
+  let mut total = 0.0
+  for i = 0; i < self.data_.length(); i = i + 1 {
+    total = total + self.data_[i]
+  }
+  { data_: [total], shape_: [] }
+}

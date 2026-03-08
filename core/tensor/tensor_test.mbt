@@ -156,3 +156,48 @@ test "show 1d" {
   assert_true(str.contains("1"))
   assert_true(str.contains("3"))
 }
+
+///|
+test "transpose 2x3" {
+  let m = @tensor.Tensor::from_array_2d([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+  let t = m.transpose()
+  assert_eq(t.shape(), [3, 2])
+  assert_eq(t.get([0, 0]), 1.0)
+  assert_eq(t.get([0, 1]), 4.0)
+  assert_eq(t.get([1, 0]), 2.0)
+  assert_eq(t.get([1, 1]), 5.0)
+  assert_eq(t.get([2, 0]), 3.0)
+  assert_eq(t.get([2, 1]), 6.0)
+}
+
+///|
+test "transpose 1x1" {
+  let m = @tensor.Tensor::from_array_2d([[5.0]])
+  let t = m.transpose()
+  assert_eq(t.shape(), [1, 1])
+  assert_eq(t.get([0, 0]), 5.0)
+}
+
+///|
+test "sum 1d" {
+  let v = @tensor.Tensor::from_array([1.0, 2.0, 3.0])
+  let s = v.sum()
+  assert_eq(s.shape(), [])
+  assert_eq(s.get([]), 6.0)
+}
+
+///|
+test "sum 2d" {
+  let m = @tensor.Tensor::from_array_2d([[1.0, 2.0], [3.0, 4.0]])
+  let s = m.sum()
+  assert_eq(s.shape(), [])
+  assert_eq(s.get([]), 10.0)
+}
+
+///|
+test "sum scalar" {
+  let s = @tensor.Tensor::scalar(5.0)
+  let r = s.sum()
+  assert_eq(r.shape(), [])
+  assert_eq(r.get([]), 5.0)
+}

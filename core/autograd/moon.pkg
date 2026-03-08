@@ -1,7 +1,3 @@
 import {
   "username/mbtorch/core/tensor",
 }
-
-options(
-  "is-main": true,
-)

@@ -42,3 +42,12 @@ pub fn Tensor::ones(shape : Array[Int]) -> Tensor {
   }
   { data_: Array::make(total, 1.0), shape_: shape.copy() }
 }
+
+///|
+pub fn Tensor::fill(shape : Array[Int], value : Double) -> Tensor {
+  let mut total = 1
+  for i = 0; i < shape.length(); i = i + 1 {
+    total = total * shape[i]
+  }
+  { data_: Array::make(total, value), shape_: shape.copy() }
+}

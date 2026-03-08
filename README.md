@@ -31,52 +31,45 @@ MbTorch focuses on small and mid-sized neural networks and edge-centric tasks, f
 
 ## Features
 
-Planned and early-stage features include:
+Implemented and planned features:
 
-- **Tensor Operations**: Multi-dimensional tensors with core math operations (add, mul, matmul, etc.)  
-- **Automatic Differentiation**: Reverse-mode autodiff (autograd) for gradient-based optimization  
-- **Neural Network Layers**: Basic layers such as dense/linear layers and activations, with more to come  
-- **Optimizers**: Common optimizers like SGD and Adam  
-- **Data Utilities**: Mini-batching helpers and simple preprocessing utilities  
-- **Model I/O**:  
+- **Tensor Operations** ✅: Multi-dimensional tensors with element-wise ops (add, mul), matrix multiplication (matmul), transpose, sum, and more
+- **Automatic Differentiation** ✅: Reverse-mode autograd engine with `Variable` wrapper, supporting add/mul/matmul/sum backward passes
+- **Neural Network Layers** (planned): Basic layers such as dense/linear layers and activations
+- **Optimizers** (planned): Common optimizers like SGD and Adam
+- **Data Utilities** (planned): Mini-batching helpers and simple preprocessing utilities
+- **Model I/O** (planned):
   - Import from **ONNX** for graph structure and operators[9][3]
   - Import from **safetensors** for efficient, safe weight loading[8][10]
-  - Export and load a **MbTorch-native format** (e.g. `.mbt`) for compact MoonBit-native serialization  
-- **Edge & Browser Runtime**: WASM-targeted execution paths for inference and lightweight fine-tuning on edge and browser environments[7][1]
+  - Export and load a **MbTorch-native format** (e.g. `.mbt`) for compact MoonBit-native serialization
+- **Edge & Browser Runtime** (planned): WASM-targeted execution paths for inference and lightweight fine-tuning on edge and browser environments[7][1]
 
 ## Quick Start
 
-> Note: MbTorch is in early development. APIs are experimental and subject to change.
+> MbTorch is in early development. APIs are experimental and subject to change.
 
 ```moonbit
-// Conceptual example – API under active design
+// Forward + backward with autograd (this code runs today!)
+fn main {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array([1.0, 2.0, 3.0]),
+    requires_grad=true,
+  )
+  let w = @autograd.Variable::new(
+    @tensor.Tensor::from_array([0.5, -1.0, 2.0]),
+    requires_grad=true,
+  )
 
-struct Dense {
-  // simplified representation
-}
+  // loss = sum(x * w)
+  let loss = x.mul(w).sum()
+  loss.backward()
 
-fn main() {
-  // Create a simple neural network
-  let model = Dense::new(784, 128);
-
-  // Define optimizer (conceptual)
-  let optimizer = Adam::new(0.001); // learning_rate
-
-  // Training loop (simplified)
-  for epoch in 0..10 {
-    let input = /* some tensor */;
-    let target = /* labels */;
-
-    let output = model.forward(input);
-    let loss = cross_entropy(output, target);
-
-    loss.backward();
-    optimizer.step();
-  }
+  println(x.grad().unwrap())  // Tensor(shape=[3], data=[0.5, -1, 2])
+  println(w.grad().unwrap())  // Tensor(shape=[3], data=[1, 2, 3])
 }
 ```
 
-This example is **conceptual** and does not yet reflect the final public API. See the `examples/` directory for the latest working demos as the project evolves.
+See `examples/` for more working demos. Neural network layers (`nn`), optimizers (`optim`), and model I/O (`io`) are under active development.
 
 ## Module Structure
 
@@ -84,12 +77,14 @@ MbTorch is designed as a modular monorepo with clear boundaries between componen
 
 ```text
 mbtorch/
-├── core/       # Tensors, math operations, autograd core
-├── nn/         # Neural network layers and model building blocks
-├── optim/      # Optimization algorithms
-├── io/         # Model import/export (ONNX, safetensors, .mbt)
-├── examples/   # Demos and sample applications
-└── tests/      # Unit and integration tests
+├── core/
+│   ├── tensor/     # Tensor types, constructors, and numeric ops
+│   └── autograd/   # Reverse-mode autograd engine (Variable, backward)
+├── nn/             # Neural network layers (planned)
+├── optim/          # Optimization algorithms (planned)
+├── io/             # Model import/export: ONNX, safetensors, .mbt (planned)
+├── examples/       # Working demos
+└── tests/          # Unit and integration tests
 ```
 
 ### Module Responsibilities

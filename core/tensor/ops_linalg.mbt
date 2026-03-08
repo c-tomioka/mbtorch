@@ -22,3 +22,17 @@ pub fn Tensor::matmul(self : Tensor, other : Tensor) -> Tensor {
   }
   { data_: result, shape_: [m, n] }
 }
+
+///|
+pub fn Tensor::transpose(self : Tensor) -> Tensor {
+  guard self.ndim() == 2 else { abort("transpose: tensor must be 2D") }
+  let rows = self.shape_[0]
+  let cols = self.shape_[1]
+  let result = Array::make(rows * cols, 0.0)
+  for i = 0; i < rows; i = i + 1 {
+    for j = 0; j < cols; j = j + 1 {
+      result[j * rows + i] = self.data_[i * cols + j]
+    }
+  }
+  { data_: result, shape_: [cols, rows] }
+}
