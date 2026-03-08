@@ -91,8 +91,22 @@ More examples:
 
 - [`basic_mlp`](examples/basic_mlp/) — Train an MLP and watch the loss decrease
 - [`save_mlp`](examples/save_mlp/) — Train, serialize to JSON, deserialize, and verify output parity
+- [`web_mlp`](examples/web_mlp/) — **Run the same MLP training in the browser** (WebAssembly)
 - [`basic_autograd`](examples/basic_autograd/) — Forward + backward with `Variable`
 - [`basic_tensor_ops`](examples/basic_tensor_ops/) — Tensor constructors and numeric ops
+
+### Browser Demo
+
+The same MoonBit training code runs in the browser via WebAssembly with zero source-level changes.
+
+```bash
+moon build --target wasm-gc
+python3 -m http.server 8080
+# Open http://localhost:8080/examples/web_mlp/index.html
+```
+
+Requires a wasm-gc capable browser: Chrome 119+, Firefox 120+, or Safari 18.2+.
+See [`examples/web_mlp/`](examples/web_mlp/) for details.
 
 ## Module Structure
 

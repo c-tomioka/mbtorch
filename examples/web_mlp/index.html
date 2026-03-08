@@ -5,17 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MbTorch Web MLP Demo</title>
   <style>
-    body { font-family: monospace; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
-    h1 { font-size: 1.4rem; }
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #333; }
+    h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+    .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
+    .info { background: #f0f4f8; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; }
     #output { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 4px;
-              min-height: 200px; white-space: pre-wrap; overflow-y: auto; }
-    #status { margin-bottom: 0.5rem; color: #666; }
+              min-height: 200px; white-space: pre-wrap; overflow-y: auto; font-family: monospace; font-size: 0.9rem; }
+    #status { margin-bottom: 0.5rem; font-weight: bold; }
+    #status.loading { color: #b58900; }
+    #status.done { color: #2aa198; }
+    #status.error { color: #dc322f; }
   </style>
 </head>
 <body>
   <h1>MbTorch Web MLP Demo</h1>
-  <p>Training a 2-layer MLP (Linear(2,4) &rarr; ReLU &rarr; Linear(4,1)) with SGD in the browser via WebAssembly.</p>
-  <div id="status">Loading WASM module...</div>
+  <p class="subtitle">Training a 2-layer MLP (Linear(2,4) &rarr; ReLU &rarr; Linear(4,1)) with SGD in the browser via WebAssembly.</p>
+  <div class="info">
+    The model learns <code>y = 2*x1 + 3*x2</code> from 3 data points.
+    Loss starts around ~137 and decreases to ~0.45 over 100 training steps &mdash; all computed inside the browser.
+  </div>
+  <div id="status" class="loading">Loading WASM module...</div>
   <pre id="output"></pre>
 
   <script type="module">
@@ -43,7 +52,7 @@
         },
       };
 
-      status.textContent = "Loading and running...";
+      status.textContent = "Training in progress...";
 
       const response = await fetch(wasmPath);
       if (!response.ok) {
@@ -64,12 +73,17 @@
       }
 
       status.textContent = "Done!";
+      status.className = "done";
     } catch (e) {
       status.textContent = "Error: " + e.message;
+      status.className = "error";
       console.error(e);
       output.textContent += "\n[Error] " + e.message + "\n";
-      output.textContent += "Make sure you have run: moon build --target wasm-gc\n";
-      output.textContent += "And are serving from the project root with a local HTTP server.\n";
+      output.textContent += "\nTroubleshooting:\n";
+      output.textContent += "  1. Run: moon build --target wasm-gc\n";
+      output.textContent += "  2. Start server from project root: python3 -m http.server 8080\n";
+      output.textContent += "  3. Open: http://localhost:8080/examples/web_mlp/index.html\n";
+      output.textContent += "  4. Use Chrome 119+, Firefox 120+, or Safari 18.2+\n";
     }
   </script>
 </body>
