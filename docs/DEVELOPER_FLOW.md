@@ -8,19 +8,19 @@ MbTorch では、**1 モジュールごとに同じ開発サイクル**を回す
 ## 全体像（1 モジュール分のサイクル）
 
 1. アーキテクチャ確認  
-   → `mbtorch-architecture` ＋ `CLAUDE.md`  
+   → SKILL `/mbtorch-architecture` ＋ `CLAUDE.md`  
 
 2. テスト設計（TDD）  
-   → `mbtorch-tdd`  
+   → SKILL `/mbtorch-tdd`  
 
 3. API 形状の確認（必要なら）  
-   → `mbtorch-api-design`  
+   → SKILL `/mbtorch-api-design`  
 
 4. 実装（必要に応じて言語仕様・エラー調査）  
-   → 通常実装 ＋ `moonbit-evaluating-code` / `moonbit-investigating-errors`  
+   → 通常実装 ＋ SKILL `/moonbit-evaluating-code` / SKILL `/moonbit-investigating-errors`  
 
 5. ドキュメント・examples・整理  
-   → `mbtorch-docs` ＋ `mbtorch-examples` ＋（必要に応じて）`mbtorch-refactor`  
+   → SKILL `/mbtorch-docs` ＋ SKILL `/mbtorch-examples` ＋（必要に応じて）SKILL `/mbtorch-refactor`  
 
 ***
 
@@ -170,19 +170,19 @@ mbtorch-refactor のルールに従って問題点の整理と
 
 Tensor の基本演算モジュールを例にした場合、典型的なフローは次の通りです。
 
-1. `/plan + mbtorch-architecture`  
+1. `/plan + /mbtorch-architecture`  
    → 実装場所とファイル名を決める  
 
-2. `/plan + mbtorch-tdd`  
+2. `/plan + /mbtorch-tdd`  
    → テストファイル＋テストコードを書く（実装はまだ）  
 
-3. （必要なら）`/plan + mbtorch-api-design`  
+3. （必要なら）`/plan + /mbtorch-api-design`  
    → API 形状とサンプルコードを固める  
 
-4. `/plan + mbtorch-tdd`（＋ `moonbit-evaluating-code` / `moonbit-investigating-errors`）  
+4. `/plan + /mbtorch-tdd`（＋ `/moonbit-evaluating-code` / `/moonbit-investigating-errors`）  
    → 実装してテストを通す  
 
-5. `/plan + mbtorch-docs` ＋ `/plan + mbtorch-examples`  
+5. `/plan + /mbtorch-docs` ＋ `/plan + /mbtorch-examples`  
    → README / examples を更新する  
 
 6. 規模が大きくなってきたら `/plan + mbtorch-refactor`  
