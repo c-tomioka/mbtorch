@@ -201,3 +201,50 @@ test "sum scalar" {
   assert_eq(r.shape(), [])
   assert_eq(r.get([]), 5.0)
 }
+
+///|
+test "sub element-wise 1d" {
+  let a = @tensor.Tensor::from_array([5.0, 3.0, 1.0])
+  let b = @tensor.Tensor::from_array([1.0, 2.0, 3.0])
+  let c = a.sub(b)
+  assert_eq(c.shape(), [3])
+  assert_eq(c.get([0]), 4.0)
+  assert_eq(c.get([1]), 1.0)
+  assert_eq(c.get([2]), -2.0)
+}
+
+///|
+test "sub element-wise 2d" {
+  let a = @tensor.Tensor::from_array_2d([[5.0, 6.0], [7.0, 8.0]])
+  let b = @tensor.Tensor::from_array_2d([[1.0, 2.0], [3.0, 4.0]])
+  let c = a.sub(b)
+  assert_eq(c.shape(), [2, 2])
+  assert_eq(c.get([0, 0]), 4.0)
+  assert_eq(c.get([1, 1]), 4.0)
+}
+
+///|
+test "scale multiplies all elements" {
+  let a = @tensor.Tensor::from_array([2.0, -3.0, 4.0])
+  let b = a.scale(0.5)
+  assert_eq(b.shape(), [3])
+  assert_eq(b.get([0]), 1.0)
+  assert_eq(b.get([1]), -1.5)
+  assert_eq(b.get([2]), 2.0)
+}
+
+///|
+test "rand produces correct shape" {
+  let t = @tensor.Tensor::rand([2, 3])
+  assert_eq(t.shape(), [2, 3])
+  assert_eq(t.size(), 6)
+}
+
+///|
+test "rand seed reproducibility" {
+  let a = @tensor.Tensor::rand([3], seed=42UL)
+  let b = @tensor.Tensor::rand([3], seed=42UL)
+  assert_eq(a.get([0]), b.get([0]))
+  assert_eq(a.get([1]), b.get([1]))
+  assert_eq(a.get([2]), b.get([2]))
+}

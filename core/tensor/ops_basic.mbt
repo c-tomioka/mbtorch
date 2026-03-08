@@ -35,6 +35,29 @@ pub impl Mul for Tensor with mul(self, other) {
 }
 
 ///|
+pub fn Tensor::sub(self : Tensor, other : Tensor) -> Tensor {
+  guard self.shape_ == other.shape_ else {
+    abort("sub: shape mismatch \{self.shape_} vs \{other.shape_}")
+  }
+  let n = self.data_.length()
+  let result = Array::make(n, 0.0)
+  for i = 0; i < n; i = i + 1 {
+    result[i] = self.data_[i] - other.data_[i]
+  }
+  { data_: result, shape_: self.shape_.copy() }
+}
+
+///|
+pub fn Tensor::scale(self : Tensor, factor : Double) -> Tensor {
+  let n = self.data_.length()
+  let result = Array::make(n, 0.0)
+  for i = 0; i < n; i = i + 1 {
+    result[i] = self.data_[i] * factor
+  }
+  { data_: result, shape_: self.shape_.copy() }
+}
+
+///|
 pub fn Tensor::sum(self : Tensor) -> Tensor {
   let mut total = 0.0
   for i = 0; i < self.data_.length(); i = i + 1 {

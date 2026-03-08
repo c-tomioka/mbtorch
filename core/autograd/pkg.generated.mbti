@@ -15,11 +15,15 @@ type Variable
 pub fn Variable::add(Self, Self) -> Self
 pub fn Variable::backward(Self) -> Unit
 pub fn Variable::data(Self) -> @tensor.Tensor
+pub fn Variable::expand_rows(Self, Int) -> Self
 pub fn Variable::grad(Self) -> @tensor.Tensor?
 pub fn Variable::matmul(Self, Self) -> Self
 pub fn Variable::mul(Self, Self) -> Self
 pub fn Variable::new(@tensor.Tensor, requires_grad? : Bool) -> Self
+pub fn Variable::relu(Self) -> Self
+pub fn Variable::set_data(Self, @tensor.Tensor) -> Unit
 pub fn Variable::shape(Self) -> Array[Int]
+pub fn Variable::sub(Self, Self) -> Self
 pub fn Variable::sum(Self) -> Self
 pub fn Variable::zero_grad(Self) -> Unit
 

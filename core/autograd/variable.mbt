@@ -25,3 +25,8 @@ pub fn Variable::shape(self : Variable) -> Array[Int] {
 pub fn Variable::zero_grad(self : Variable) -> Unit {
   self.grad = None
 }
+
+///|
+pub fn Variable::set_data(self : Variable, data : @tensor.Tensor) -> Unit {
+  self.data = data
+}

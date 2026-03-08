@@ -1,6 +1,6 @@
 ///|
 struct Variable {
-  data : @tensor.Tensor
+  mut data : @tensor.Tensor
   mut grad : @tensor.Tensor?
   grad_fn : GradFn?
   requires_grad : Bool
@@ -12,4 +12,7 @@ priv enum GradFn {
   MulBackward(Variable, Variable)
   MatmulBackward(Variable, Variable)
   SumBackward(Variable)
+  SubBackward(Variable, Variable)
+  ReluBackward(Variable)
+  ExpandRowsBackward(Variable)
 }

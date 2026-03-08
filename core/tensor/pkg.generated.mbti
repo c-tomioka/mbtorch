@@ -16,9 +16,12 @@ pub fn Tensor::matmul(Self, Self) -> Self
 pub fn Tensor::mul(Self, Self) -> Self
 pub fn Tensor::ndim(Self) -> Int
 pub fn Tensor::ones(Array[Int]) -> Self
+pub fn Tensor::rand(Array[Int], seed? : UInt64) -> Self
 pub fn Tensor::scalar(Double) -> Self
+pub fn Tensor::scale(Self, Double) -> Self
 pub fn Tensor::shape(Self) -> Array[Int]
 pub fn Tensor::size(Self) -> Int
+pub fn Tensor::sub(Self, Self) -> Self
 pub fn Tensor::sum(Self) -> Self
 pub fn Tensor::transpose(Self) -> Self
 pub fn Tensor::zeros(Array[Int]) -> Self

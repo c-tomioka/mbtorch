@@ -1,0 +1,24 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "username/mbtorch/nn"
+
+import {
+  "username/mbtorch/core/autograd",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Linear {
+  weight : @autograd.Variable
+  bias : @autograd.Variable
+}
+pub fn Linear::forward(Self, @autograd.Variable) -> @autograd.Variable
+pub fn Linear::new(Int, Int, seed? : UInt64) -> Self
+pub fn Linear::parameters(Self) -> Array[@autograd.Variable]
+
+// Type aliases
+
+// Traits
+

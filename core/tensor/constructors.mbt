@@ -51,3 +51,22 @@ pub fn Tensor::fill(shape : Array[Int], value : Double) -> Tensor {
   }
   { data_: Array::make(total, value), shape_: shape.copy() }
 }
+
+///|
+/// Simple pseudo-random tensor with values in [-1, 1), using LCG.
+pub fn Tensor::rand(shape : Array[Int], seed? : UInt64 = 42UL) -> Tensor {
+  let mut total = 1
+  for i = 0; i < shape.length(); i = i + 1 {
+    total = total * shape[i]
+  }
+  let data = Array::make(total, 0.0)
+  let mut state = seed
+  for i = 0; i < total; i = i + 1 {
+    // LCG: state = state * 6364136223846793005 + 1442695040888963407
+    state = state * 6364136223846793005UL + 1442695040888963407UL
+    // Extract bits and map to [-1, 1)
+    let bits = (state >> 33).to_int()
+    data[i] = bits.to_double() / 1073741824.0 - 1.0
+  }
+  { data_: data, shape_: shape.copy() }
+}

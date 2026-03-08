@@ -265,3 +265,102 @@ test "grad_check composite" {
     ),
   )
 }
+
+///|
+test "grad sub scalar" {
+  // f(x,y) = x - y, df/dx = 1, df/dy = -1
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::scalar(5.0),
+    requires_grad=true,
+  )
+  let y = @autograd.Variable::new(
+    @tensor.Tensor::scalar(3.0),
+    requires_grad=true,
+  )
+  let z = x.sub(y)
+  z.backward()
+  assert_eq(x.grad().unwrap().get([]), 1.0)
+  assert_eq(y.grad().unwrap().get([]), -1.0)
+}
+
+///|
+test "grad sub 1d" {
+  let a = @autograd.Variable::new(
+    @tensor.Tensor::from_array([5.0, 3.0]),
+    requires_grad=true,
+  )
+  let b = @autograd.Variable::new(
+    @tensor.Tensor::from_array([1.0, 2.0]),
+    requires_grad=true,
+  )
+  let c = a.sub(b).sum()
+  c.backward()
+  assert_eq(a.grad().unwrap().get([0]), 1.0)
+  assert_eq(a.grad().unwrap().get([1]), 1.0)
+  assert_eq(b.grad().unwrap().get([0]), -1.0)
+  assert_eq(b.grad().unwrap().get([1]), -1.0)
+}
+
+///|
+test "grad relu positive" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array([2.0, 3.0]),
+    requires_grad=true,
+  )
+  let y = x.relu().sum()
+  y.backward()
+  assert_eq(x.grad().unwrap().get([0]), 1.0)
+  assert_eq(x.grad().unwrap().get([1]), 1.0)
+}
+
+///|
+test "grad relu mixed" {
+  // relu([2, -1, 0, 3]) = [2, 0, 0, 3]
+  // grad: [1, 0, 0, 1]
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array([2.0, -1.0, 0.0, 3.0]),
+    requires_grad=true,
+  )
+  let y = x.relu().sum()
+  y.backward()
+  assert_eq(x.grad().unwrap().get([0]), 1.0)
+  assert_eq(x.grad().unwrap().get([1]), 0.0)
+  assert_eq(x.grad().unwrap().get([2]), 0.0)
+  assert_eq(x.grad().unwrap().get([3]), 1.0)
+}
+
+///|
+test "grad_check sub" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array([2.0, 3.0]),
+    requires_grad=true,
+  )
+  let y = @autograd.Variable::new(
+    @tensor.Tensor::from_array([4.0, 5.0]),
+    requires_grad=true,
+  )
+  assert_true(
+    @autograd.grad_check(fn(inputs) { inputs[0].sub(inputs[1]).sum() }, [x, y]),
+  )
+}
+
+///|
+test "grad_check relu" {
+  // Use positive values to avoid discontinuity at 0
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array([1.0, 2.0, 3.0]),
+    requires_grad=true,
+  )
+  assert_true(@autograd.grad_check(fn(inputs) { inputs[0].relu().sum() }, [x]))
+}
+
+///|
+test "set_data updates variable" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::scalar(3.0),
+    requires_grad=true,
+  )
+  assert_eq(x.data().get([]), 3.0)
+  x.set_data(@tensor.Tensor::scalar(7.0))
+  assert_eq(x.data().get([]), 7.0)
+}
