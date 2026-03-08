@@ -1,1 +1,1 @@
-# username/mbtorch
+# c-tomioka/mbtorch

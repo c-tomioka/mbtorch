@@ -212,7 +212,13 @@ Contributions are welcome!
 
 ## License
 
-MbTorch is intended to be released under a permissive open-source license (e.g. Apache 2.0). License details will be finalized and documented in `LICENSE`.
+MbTorch is licensed under the Apache License 2.0. See LICENSE for details.
+
+## Acknowledgements
+
+This project is built on top of the amazing MoonBit language and toolchain.  
+I would like to thank the MoonBit team and the community for their continuous work on the compiler, libraries, and ecosystem, which made experiments like this framework possible.  
+Any mistakes or limitations in this project are entirely my own.
 
 ***
 
