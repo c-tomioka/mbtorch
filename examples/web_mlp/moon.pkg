@@ -3,7 +3,6 @@ import {
   "c-tomioka/mbtorch/core/autograd",
   "c-tomioka/mbtorch/nn",
   "c-tomioka/mbtorch/optim",
-  "c-tomioka/mbtorch/io",
 }
 
 options(

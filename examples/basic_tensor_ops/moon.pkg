@@ -1,5 +1,5 @@
 import {
-  "username/mbtorch/core/tensor",
+  "c-tomioka/mbtorch/core/tensor",
 }
 
 options(

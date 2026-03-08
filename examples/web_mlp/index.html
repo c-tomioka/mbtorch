@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MbTorch Web MLP Demo</title>
+  <style>
+    body { font-family: monospace; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.4rem; }
+    #output { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 4px;
+              min-height: 200px; white-space: pre-wrap; overflow-y: auto; }
+    #status { margin-bottom: 0.5rem; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>MbTorch Web MLP Demo</h1>
+  <p>Training a 2-layer MLP (Linear(2,4) &rarr; ReLU &rarr; Linear(4,1)) with SGD in the browser via WebAssembly.</p>
+  <div id="status">Loading WASM module...</div>
+  <pre id="output"></pre>
+
+  <script type="module">
+    const output = document.getElementById("output");
+    const status = document.getElementById("status");
+
+    const wasmPath = "../../_build/wasm-gc/debug/build/examples/web_mlp/web_mlp.wasm";
+
+    try {
+      // MoonBit's println emits characters one at a time via spectest.print_char.
+      // Buffer them and flush on newline.
+      let buffer = [];
+      const importObject = {
+        spectest: {
+          print_char(ch) {
+            if (ch === 10) {
+              const line = String.fromCharCode(...buffer);
+              console.log(line);
+              output.textContent += line + "\n";
+              buffer = [];
+            } else if (ch !== 13) {
+              buffer.push(ch);
+            }
+          },
+        },
+      };
+
+      status.textContent = "Loading and running...";
+
+      const response = await fetch(wasmPath);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText}`);
+      }
+
+      const module = await WebAssembly.compileStreaming(response);
+      const instance = await WebAssembly.instantiate(module, importObject);
+
+      // MoonBit exports _start for is-main packages; call it to run fn main
+      instance.exports._start();
+
+      // Flush any remaining buffered output
+      if (buffer.length > 0) {
+        const line = String.fromCharCode(...buffer);
+        console.log(line);
+        output.textContent += line + "\n";
+      }
+
+      status.textContent = "Done!";
+    } catch (e) {
+      status.textContent = "Error: " + e.message;
+      console.error(e);
+      output.textContent += "\n[Error] " + e.message + "\n";
+      output.textContent += "Make sure you have run: moon build --target wasm-gc\n";
+      output.textContent += "And are serving from the project root with a local HTTP server.\n";
+    }
+  </script>
+</body>
+</html>

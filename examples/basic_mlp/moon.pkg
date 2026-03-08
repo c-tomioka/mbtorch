@@ -1,8 +1,8 @@
 import {
-  "username/mbtorch/core/tensor",
-  "username/mbtorch/core/autograd",
-  "username/mbtorch/nn",
-  "username/mbtorch/optim",
+  "c-tomioka/mbtorch/core/tensor",
+  "c-tomioka/mbtorch/core/autograd",
+  "c-tomioka/mbtorch/nn",
+  "c-tomioka/mbtorch/optim",
 }
 
 options(
