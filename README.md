@@ -1,23 +1,23 @@
 # MbTorch
 
-Lightweight AI/ML framework in MoonBit. Train, fine-tune, and run neural networks directly in the browser and on edge devices via WebAssembly. Privacy-first, serverless ML for everyone.[1][2]
+Lightweight AI/ML framework in MoonBit. Train, fine-tune, and run neural networks directly in the browser and on edge devices via WebAssembly. Privacy-first, serverless ML for everyone.
 
 ## Overview
 
-**MbTorch** is an open-source machine learning framework built in MoonBit, designed for lightweight models and on-device adaptation. It focuses on enabling users to build small-to-medium neural networks from scratch in MoonBit, import existing pretrained models (via ONNX and safetensors), and run training and inference efficiently on browsers and edge devices through WebAssembly.[2][3][1]
+**MbTorch** is an open-source machine learning framework built in MoonBit, designed for lightweight models and on-device adaptation. It focuses on enabling users to build small-to-medium neural networks from scratch in MoonBit, import existing pretrained models (via ONNX and safetensors), and run training and inference efficiently on browsers and edge devices through WebAssembly.
 
-Unlike traditional ML frameworks that assume powerful servers and large-scale training, MbTorch embraces constrained environments and offline usage. The goal is to let users obtain an optimized model for their own data and device, entirely on-device and without sending private data to the cloud.[4][1]
+Unlike traditional ML frameworks that assume powerful servers and large-scale training, MbTorch embraces constrained environments and offline usage. The goal is to let users obtain an optimized model for their own data and device, entirely on-device and without sending private data to the cloud.
 
 ### Why MbTorch?
 
 Most AI frameworks prioritize massive, server-side models. MbTorch takes a different approach:
 
-- **Train on-device**: Keep sensitive data local; no mandatory cloud backend.[5]
-- **Lightweight by design**: Target practical models suitable for CPU/WASM, rather than giant distributed training setups.[6][2]
-- **WebAssembly-first**: Compile MoonBit to WASM and run anywhere a WebAssembly runtime is available (browsers, edge runtimes, serverless).[7][1]
+- **Train on-device**: Keep sensitive data local; no mandatory cloud backend.
+- **Lightweight by design**: Target practical models suitable for CPU/WASM, rather than giant distributed training setups.
+- **WebAssembly-first**: Compile MoonBit to WASM and run anywhere a WebAssembly runtime is available (browsers, edge runtimes, serverless).
 - **Privacy-preserving**: Support personal fine-tuning and adaptation without uploading raw data.  
-- **Interoperable**: Import models via ONNX and safetensors to reuse existing ecosystems and tooling.[3][8]
-- **MoonBit native**: Leverage MoonBit’s AI-friendly, WASM-oriented design, small binaries, and fast compilation for edge AI workflows.[1][4]
+- **Interoperable**: Import models via ONNX and safetensors to reuse existing ecosystems and tooling.
+- **MoonBit native**: Leverage MoonBit’s AI-friendly, WASM-oriented design, small binaries, and fast compilation for edge AI workflows.
 
 ### Target Use Cases
 
@@ -48,13 +48,13 @@ MbTorch has reached its **first MVP**: tensors, reverse-mode autograd, `Linear`/
 
 ### Planned
 
-- **ONNX Import** — Graph structure and operator import for small MLPs/CNNs[9][3]
-- **safetensors Import** — Efficient, safe weight loading from HuggingFace ecosystem[8][10]
+- **ONNX Import** — Graph structure and operator import for small MLPs/CNNs
+- **safetensors Import** — Efficient, safe weight loading from HuggingFace ecosystem
 - **Binary `.mbt` Format** — Compact binary serialization (metadata + packed tensor buffer)
 - **Additional Optimizers** — Adam, learning rate schedulers
 - **Additional Layers** — Conv2d, attention, batch normalization
 - **Data Utilities** — Mini-batching helpers and preprocessing
-- **Edge & Browser Runtime** — WASM-targeted inference and lightweight fine-tuning[7][1]
+- **Edge & Browser Runtime** — WASM-targeted inference and lightweight fine-tuning
 
 ## Quick Start
 
@@ -119,7 +119,7 @@ mbtorch/
 - `optim`  
   - Optimizers that operate on parameters produced by `nn`  
 - `io`  
-  - ONNX graph import, safetensors weight loading, `.mbt` model serialization/deserialization[10][9]
+  - ONNX graph import, safetensors weight loading, `.mbt` model serialization/deserialization  
 - `examples`  
   - End-to-end samples (browser demos, edge inference, fine-tuning flows)  
 - `tests`  
@@ -129,7 +129,7 @@ The dependency graph is kept minimal and explicit to keep MbTorch lightweight an
 
 ## Development Style
 
-MbTorch is developed with **Test-Driven Development (TDD)** and AI-assisted coding as first-class practices.[11][12]
+MbTorch is developed with **Test-Driven Development (TDD)** and AI-assisted coding as first-class practices.
 
 - New functionality starts with tests:  
   1. Write or refine tests that describe the expected behavior  
@@ -140,41 +140,41 @@ MbTorch is developed with **Test-Driven Development (TDD)** and AI-assisted codi
 
 ## Roadmap
 
-### Phase 1: Core and TDD Foundation (0–3 months)
+### Phase 1: Core and TDD Foundation
 
 Goal: Establish a minimal but solid core in MoonBit, with TDD and CI as the default workflow.
 
-- ~~Project layout and build/test tooling set up~~ ✅
-- ~~Tensor type and core operations (add, mul, matmul, basic reductions)~~ ✅
-- ~~Autograd engine (reverse-mode) for scalars, 1D, and 2D tensors~~ ✅
-- ~~Basic neural network layers: `Linear`/`Dense`, common activations (ReLU, etc.)~~ ✅
-- ~~Optimizers: SGD~~ ✅ / Adam (remaining)
-- ~~Synthetic-data integration tests where training reduces loss over time~~ ✅ (78 tests passing)
-- ~~JSON-based model serialization (`.mbt`-style serialize/deserialize)~~ ✅
+- Project layout and build/test tooling set up ✅
+- Tensor type and core operations (add, mul, matmul, basic reductions) ✅
+- Autograd engine (reverse-mode) for scalars, 1D, and 2D tensors ✅
+- Basic neural network layers: `Linear`/`Dense`, common activations (ReLU, etc.) ✅
+- Optimizers: SGD ✅ / Adam (remaining)
+- Synthetic-data integration tests where training reduces loss over time ✅ (78 tests passing)
+- JSON-based model serialization (`.mbt`-style serialize/deserialize) ✅
 
-### Phase 2: Model Formats and I/O (3–6 months)
+### Phase 2: Model Formats and I/O
 
 Goal: Make MbTorch interoperable with existing model ecosystems and support its own native format.
 
 - **ONNX import (subset)**  
-  - Support for a targeted subset of operators needed for small MLPs, CNNs, and lightweight Transformers[3][9]
+  - Support for a targeted subset of operators needed for small MLPs, CNNs, and lightweight Transformers  
   - Verification tests comparing MbTorch outputs with reference runtimes  
 - **safetensors import**  
-  - Parse header (JSON) and binary tensor buffer, supporting common dtypes and shapes[8][10]
+  - Parse header (JSON) and binary tensor buffer, supporting common dtypes and shapes  
   - Combine ONNX graphs with safetensors weights to reconstruct pretrained models  
-- ~~**MbTorch-native format (`.mbt` JSON)**~~ ✅
-  - ~~`serialize_model` / `deserialize_model` for JSON-based model I/O~~ ✅
+- **MbTorch-native format (`.mbt` JSON)**  
+  - `serialize_model` / `deserialize_model` for JSON-based model I/O ✅
   - Binary `.mbt` format (metadata + packed tensor buffer) — planned
 - User-facing I/O APIs:
   - `Model.from_onnx(...)` / `Model.from_safetensors(...)`
   - Binary `save_mbt(...)` / `load_mbt(...)`  
 
-### Phase 3: Browser, Edge & Fine-Tuning UX (6–12 months)
+### Phase 3: Browser, Edge & Fine-Tuning UX
 
 Goal: Deliver the core user experience: local, privacy-preserving fine-tuning and inference on browsers and edge devices.
 
 - **WASM/Edge Runtime**  
-  - Build and optimize a MbTorch runtime path targeting WebAssembly for browser and edge runtimes[13][1][7]
+  - Build and optimize a MbTorch runtime path targeting WebAssembly for browser and edge runtimes  
   - Provide a minimal browser demo (e.g. simple classifier or MLP)  
 - **Lightweight Fine-Tuning**  
   - Support parameter-efficient tuning (e.g. LoRA/adapters) on top of imported models  
@@ -185,7 +185,7 @@ Goal: Deliver the core user experience: local, privacy-preserving fine-tuning an
   - Save the personalized model in `.mbt` format to local storage (browser or file system)  
 - **Docs and Examples**  
   - “Build a tiny MLP in MoonBit” tutorial  
-  - “Import a PyTorch model via ONNX into MbTorch” guide[14][15]
+  - “Import a PyTorch model via ONNX into MbTorch” guide  
   - Browser demo for local personalization and inference  
 
 ### Future Directions
@@ -199,7 +199,7 @@ Potential future extensions (subject to change):
 
 ## Installation
 
-> NOTE: Installation and packaging details will be added once the project reaches a usable alpha. Integration with the MoonBit package ecosystem is planned.[16][1]
+> NOTE: Installation and packaging details will be added once the project reaches a usable alpha. Integration with the MoonBit package ecosystem is planned.
 
 ## Contributing
 
