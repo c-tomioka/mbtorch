@@ -4,9 +4,11 @@
 /// Data:  y = 2*x1 + 3*x2 (synthetic)
 fn main {
   // Synthetic data: y = 2*x1 + 3*x2
-  let x_data = @tensor.Tensor::from_array_2d(
-    [[1.0, 1.0], [2.0, 1.0], [1.0, 2.0]],
-  )
+  let x_data = @tensor.Tensor::from_array_2d([
+    [1.0, 1.0],
+    [2.0, 1.0],
+    [1.0, 2.0],
+  ])
   let t_data = @tensor.Tensor::from_array_2d([[5.0], [7.0], [8.0]])
 
   // --- SGD ---

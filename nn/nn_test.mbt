@@ -177,3 +177,83 @@ test "linear from_tensors creates working layer" {
   assert_eq(output.data().get([0, 1]), 3.2)
   assert_eq(output.data().get([0, 2]), 4.3)
 }
+
+///|
+test "mlp with tanh reduces loss" {
+  let l1 = @nn.Linear::new(2, 4, seed=42UL)
+  let l2 = @nn.Linear::new(4, 1, seed=123UL)
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[1.0, 1.0], [2.0, 1.0], [1.0, 2.0]]),
+  )
+  let target = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[5.0], [7.0], [8.0]]),
+  )
+  let lr = 0.01
+  let h0 = l1.forward(x).tanh()
+  let pred0 = l2.forward(h0)
+  let diff0 = pred0.sub(target)
+  let initial_loss = diff0.mul(diff0).sum().data().get([])
+  for _step = 0; _step < 50; _step = _step + 1 {
+    let h = l1.forward(x).tanh()
+    let pred = l2.forward(h)
+    let diff = pred.sub(target)
+    let loss = diff.mul(diff).sum()
+    loss.backward()
+    let params = l1.parameters()
+    let p2 = l2.parameters()
+    for i = 0; i < p2.length(); i = i + 1 {
+      params.push(p2[i])
+    }
+    for i = 0; i < params.length(); i = i + 1 {
+      let p = params[i]
+      let grad = p.grad().unwrap()
+      p.set_data(p.data().sub(grad.scale(lr)))
+      p.zero_grad()
+    }
+  }
+  let h_f = l1.forward(x).tanh()
+  let pred_f = l2.forward(h_f)
+  let diff_f = pred_f.sub(target)
+  let final_loss = diff_f.mul(diff_f).sum().data().get([])
+  assert_true(final_loss < initial_loss)
+}
+
+///|
+test "mlp with sigmoid reduces loss" {
+  let l1 = @nn.Linear::new(2, 4, seed=42UL)
+  let l2 = @nn.Linear::new(4, 1, seed=123UL)
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[1.0, 1.0], [2.0, 1.0], [1.0, 2.0]]),
+  )
+  let target = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[0.5], [0.7], [0.8]]),
+  )
+  let lr = 0.01
+  let h0 = l1.forward(x).sigmoid()
+  let pred0 = l2.forward(h0)
+  let diff0 = pred0.sub(target)
+  let initial_loss = diff0.mul(diff0).sum().data().get([])
+  for _step = 0; _step < 50; _step = _step + 1 {
+    let h = l1.forward(x).sigmoid()
+    let pred = l2.forward(h)
+    let diff = pred.sub(target)
+    let loss = diff.mul(diff).sum()
+    loss.backward()
+    let params = l1.parameters()
+    let p2 = l2.parameters()
+    for i = 0; i < p2.length(); i = i + 1 {
+      params.push(p2[i])
+    }
+    for i = 0; i < params.length(); i = i + 1 {
+      let p = params[i]
+      let grad = p.grad().unwrap()
+      p.set_data(p.data().sub(grad.scale(lr)))
+      p.zero_grad()
+    }
+  }
+  let h_f = l1.forward(x).sigmoid()
+  let pred_f = l2.forward(h_f)
+  let diff_f = pred_f.sub(target)
+  let final_loss = diff_f.mul(diff_f).sum().data().get([])
+  assert_true(final_loss < initial_loss)
+}

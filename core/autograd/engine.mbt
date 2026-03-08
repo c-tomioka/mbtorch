@@ -53,6 +53,30 @@ fn backward_with_grad(variable : Variable, grad : @tensor.Tensor) -> Unit {
       }
       backward_with_grad(a, rebuild_tensor(result, shape))
     }
+    Some(TanhBackward(a)) => {
+      // d/dx tanh(x) = 1 - tanh(x)^2
+      let n = a.data.size()
+      let shape = a.data.shape()
+      let result = Array::make(n, 0.0)
+      for i = 0; i < n; i = i + 1 {
+        let tanh_val = tanh_scalar(get_flat_val(a.data, i))
+        let grad_val = get_flat_val(grad, i)
+        result[i] = grad_val * (1.0 - tanh_val * tanh_val)
+      }
+      backward_with_grad(a, rebuild_tensor(result, shape))
+    }
+    Some(SigmoidBackward(a)) => {
+      // d/dx sigmoid(x) = sigmoid(x) * (1 - sigmoid(x))
+      let n = a.data.size()
+      let shape = a.data.shape()
+      let result = Array::make(n, 0.0)
+      for i = 0; i < n; i = i + 1 {
+        let sig_val = sigmoid_scalar(get_flat_val(a.data, i))
+        let grad_val = get_flat_val(grad, i)
+        result[i] = grad_val * sig_val * (1.0 - sig_val)
+      }
+      backward_with_grad(a, rebuild_tensor(result, shape))
+    }
     Some(ExpandRowsBackward(a)) => {
       // Sum gradient along batch dimension: [batch, cols] -> [cols]
       let cols = a.data.shape()[0]

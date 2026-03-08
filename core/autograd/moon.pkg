@@ -1,3 +1,4 @@
 import {
   "c-tomioka/mbtorch/core/tensor",
+  "moonbitlang/core/math",
 }

@@ -14,5 +14,7 @@ priv enum GradFn {
   SumBackward(Variable)
   SubBackward(Variable, Variable)
   ReluBackward(Variable)
+  TanhBackward(Variable)
+  SigmoidBackward(Variable)
   ExpandRowsBackward(Variable)
 }

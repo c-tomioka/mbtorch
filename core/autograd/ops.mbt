@@ -90,6 +90,49 @@ pub fn Variable::relu(self : Variable) -> Variable {
 }
 
 ///|
+pub fn Variable::tanh(self : Variable) -> Variable {
+  let n = self.data.size()
+  let shape = self.data.shape()
+  let result_data = Array::make(n, 0.0)
+  for i = 0; i < n; i = i + 1 {
+    let val = get_flat_val(self.data, i)
+    result_data[i] = tanh_scalar(val)
+  }
+  let tensor = rebuild_tensor(result_data, shape)
+  let grad_fn = if self.requires_grad { Some(TanhBackward(self)) } else { None }
+  { data: tensor, grad: None, grad_fn, requires_grad: self.requires_grad }
+}
+
+///|
+pub fn Variable::sigmoid(self : Variable) -> Variable {
+  let n = self.data.size()
+  let shape = self.data.shape()
+  let result_data = Array::make(n, 0.0)
+  for i = 0; i < n; i = i + 1 {
+    let val = get_flat_val(self.data, i)
+    result_data[i] = sigmoid_scalar(val)
+  }
+  let tensor = rebuild_tensor(result_data, shape)
+  let grad_fn = if self.requires_grad {
+    Some(SigmoidBackward(self))
+  } else {
+    None
+  }
+  { data: tensor, grad: None, grad_fn, requires_grad: self.requires_grad }
+}
+
+///|
+fn tanh_scalar(x : Double) -> Double {
+  let e2x = @math.exp(2.0 * x)
+  (e2x - 1.0) / (e2x + 1.0)
+}
+
+///|
+fn sigmoid_scalar(x : Double) -> Double {
+  1.0 / (1.0 + @math.exp(-x))
+}
+
+///|
 fn get_flat_val(t : @tensor.Tensor, i : Int) -> Double {
   if t.ndim() == 0 {
     return t.get([])

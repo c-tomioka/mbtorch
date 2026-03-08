@@ -364,3 +364,79 @@ test "set_data updates variable" {
   x.set_data(@tensor.Tensor::scalar(7.0))
   assert_eq(x.data().get([]), 7.0)
 }
+
+///|
+test "tanh forward values" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array([0.0, 100.0, -100.0]),
+  )
+  let y = x.tanh()
+  let d = y.data()
+  // tanh(0) = 0
+  assert_true(d.get([0]).abs() < 1.0e-10)
+  // tanh(100) ≈ 1
+  assert_true(d.get([1]) > 0.999)
+  // tanh(-100) ≈ -1
+  assert_true(d.get([2]) < -0.999)
+}
+
+///|
+test "sigmoid forward values" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array([0.0, 100.0, -100.0]),
+  )
+  let y = x.sigmoid()
+  let d = y.data()
+  // sigmoid(0) = 0.5
+  assert_true((d.get([0]) - 0.5).abs() < 1.0e-10)
+  // sigmoid(100) ≈ 1
+  assert_true(d.get([1]) > 0.999)
+  // sigmoid(-100) ≈ 0
+  assert_true(d.get([2]) < 0.001)
+}
+
+///|
+test "tanh backward manual" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array([0.5]),
+    requires_grad=true,
+  )
+  let y = x.tanh().sum()
+  y.backward()
+  // d/dx tanh(0.5) = 1 - tanh(0.5)^2 ≈ 0.7864
+  let grad_val = x.grad().unwrap().get([0])
+  assert_true((grad_val - 0.7864).abs() < 0.001)
+}
+
+///|
+test "sigmoid backward manual" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array([1.0]),
+    requires_grad=true,
+  )
+  let y = x.sigmoid().sum()
+  y.backward()
+  // sigmoid(1) ≈ 0.7311, d/dx = 0.7311 * (1 - 0.7311) ≈ 0.1966
+  let grad_val = x.grad().unwrap().get([0])
+  assert_true((grad_val - 0.1966).abs() < 0.001)
+}
+
+///|
+test "grad_check tanh" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array([0.0, 0.5, -1.0, 2.0]),
+    requires_grad=true,
+  )
+  assert_true(@autograd.grad_check(fn(inputs) { inputs[0].tanh().sum() }, [x]))
+}
+
+///|
+test "grad_check sigmoid" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array([0.0, 1.0, -1.0, 3.0]),
+    requires_grad=true,
+  )
+  assert_true(
+    @autograd.grad_check(fn(inputs) { inputs[0].sigmoid().sum() }, [x]),
+  )
+}
