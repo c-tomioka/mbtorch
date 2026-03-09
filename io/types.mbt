@@ -8,6 +8,24 @@ pub(all) suberror MbtFormatError {
 }
 
 ///|
+/// Error type for safetensors format issues
+pub(all) suberror SafetensorsError {
+  InvalidHeader(String)
+  UnsupportedDtype(String)
+  DataSizeMismatch(String)
+}
+
+///|
+/// Metadata for a single tensor in a safetensors file
+pub(all) struct SafetensorsMeta {
+  name : String
+  dtype : String
+  shape : Array[Int]
+  data_start : Int
+  data_end : Int
+}
+
+///|
 /// DTO for tensor data in JSON
 priv struct TensorData {
   shape : Array[Int]
