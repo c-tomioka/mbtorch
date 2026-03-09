@@ -9,22 +9,36 @@
     h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
     .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
     .info { background: #f0f4f8; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; }
-    #output { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 4px;
-              min-height: 200px; white-space: pre-wrap; overflow-y: auto; font-family: monospace; font-size: 0.9rem; }
     #status { margin-bottom: 0.5rem; font-weight: bold; }
     #status.loading { color: #b58900; }
     #status.done { color: #2aa198; }
     #status.error { color: #dc322f; }
+    #results { margin-bottom: 1rem; display: none; }
+    #results h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+    #results-table { width: 100%; border-collapse: collapse; }
+    #results-table th, #results-table td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; font-size: 0.85rem; }
+    #results-table th { background: #f0f4f8; }
+    #results-table code { font-size: 0.8rem; }
+    #output { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 4px;
+              min-height: 200px; max-height: 400px; white-space: pre-wrap; overflow-y: auto; font-family: monospace; font-size: 0.9rem; }
   </style>
 </head>
 <body>
   <h1>MbTorch Web MLP Demo</h1>
-  <p class="subtitle">Training a 2-layer MLP (Linear(2,4) &rarr; ReLU &rarr; Linear(4,1)) with SGD in the browser via WebAssembly.</p>
+  <p class="subtitle">Comparing 6 optimizer &times; activation combinations for a 2-layer MLP, entirely in the browser via WebAssembly.</p>
   <div class="info">
-    The model learns <code>y = 2*x1 + 3*x2</code> from 3 data points.
-    Loss starts around ~137 and decreases to ~0.45 over 100 training steps &mdash; all computed inside the browser.
+    Model: Linear(2,4) &rarr; activation &rarr; Linear(4,1) learns <code>y = 2x<sub>1</sub> + 3x<sub>2</sub></code> from 3 data points.<br>
+    Optimizers: SGD (lr=0.001) and Adam (lr=0.05). Activations: ReLU, tanh, sigmoid.<br>
+    Each combination trains for 100 steps with identical initial weights.
   </div>
   <div id="status" class="loading">Loading WASM module...</div>
+  <div id="results">
+    <h2>Results Summary</h2>
+    <table id="results-table">
+      <thead><tr><th>Combination</th><th>Final Loss</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
   <pre id="output"></pre>
 
   <script type="module">
@@ -33,9 +47,11 @@
 
     const wasmPath = "../../_build/wasm-gc/debug/build/examples/web_mlp/web_mlp.wasm";
 
+    const results = [];
+    let currentLabel = null;
+    let currentFinalLoss = null;
+
     try {
-      // MoonBit's println emits characters one at a time via spectest.print_char.
-      // Buffer them and flush on newline.
       let buffer = [];
       const importObject = {
         spectest: {
@@ -45,6 +61,26 @@
               console.log(line);
               output.textContent += line + "\n";
               buffer = [];
+
+              const labelMatch = line.match(/^=== (.+) ===$/);
+              if (labelMatch) {
+                if (currentLabel && currentFinalLoss) {
+                  results.push({ label: currentLabel, loss: currentFinalLoss });
+                }
+                currentLabel = labelMatch[1];
+                currentFinalLoss = null;
+              }
+
+              const lossMatch = line.match(/^step \d+: loss = (.+)$/);
+              if (lossMatch) {
+                currentFinalLoss = lossMatch[1];
+              }
+
+              if (line === "Training complete." && currentLabel) {
+                results.push({ label: currentLabel, loss: currentFinalLoss || "N/A" });
+                currentLabel = null;
+                currentFinalLoss = null;
+              }
             } else if (ch !== 13) {
               buffer.push(ch);
             }
@@ -62,14 +98,29 @@
       const module = await WebAssembly.compileStreaming(response);
       const instance = await WebAssembly.instantiate(module, importObject);
 
-      // MoonBit exports _start for is-main packages; call it to run fn main
       instance.exports._start();
 
-      // Flush any remaining buffered output
       if (buffer.length > 0) {
         const line = String.fromCharCode(...buffer);
         console.log(line);
         output.textContent += line + "\n";
+      }
+
+      if (results.length > 0) {
+        const tbody = document.querySelector("#results-table tbody");
+        for (const r of results) {
+          const tr = document.createElement("tr");
+          const tdLabel = document.createElement("td");
+          tdLabel.textContent = r.label;
+          const tdLoss = document.createElement("td");
+          const code = document.createElement("code");
+          code.textContent = r.loss;
+          tdLoss.appendChild(code);
+          tr.appendChild(tdLabel);
+          tr.appendChild(tdLoss);
+          tbody.appendChild(tr);
+        }
+        document.getElementById("results").style.display = "block";
       }
 
       status.textContent = "Done!";
