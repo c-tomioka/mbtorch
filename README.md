@@ -31,9 +31,9 @@ MbTorch focuses on small and mid-sized neural networks and edge-centric tasks, f
 
 ## Project Status
 
-MbTorch has reached its **second milestone**: tensors, reverse-mode autograd (with tanh/sigmoid), `Linear`/MLP layers, SGD and Adam optimizers, JSON-based model serialization, and ONNX/safetensors import (Phase 1) are all implemented and tested (106 tests passing, wasm-gc build green). You can define, train, save/restore, and import pretrained neural networks entirely in MoonBit today.
+MbTorch has reached its **second milestone**: tensors, reverse-mode autograd (with tanh/sigmoid), `Linear`/MLP layers, SGD and Adam optimizers, JSON-based model serialization, ONNX/safetensors import (Phase 1), and binary `.mbt` format (MVP) are all implemented and tested (115 tests passing, wasm-gc build green). You can define, train, save/restore, and import pretrained neural networks entirely in MoonBit today.
 
-**Next up:** Python export helper scripts, `examples/import_mlp` demo, binary `.mbt` format, Conv2d, and attention layers.
+**Next up:** Conv2d, attention layers, and ONNX export.
 
 ## Features
 
@@ -44,6 +44,7 @@ MbTorch has reached its **second milestone**: tensors, reverse-mode autograd (wi
 - **Neural Network Layers** — `Linear` layer (weight, bias, forward, `from_tensors` for deserialization); composable into multi-layer MLPs with ReLU, tanh, and sigmoid activations
 - **Optimizers** — `SGD` and `Adam` optimizers with `new`, `step()`, `zero_grad()`
 - **Model I/O** — Serialize/deserialize models to `.mbt`-style JSON via `serialize_model` / `deserialize_model`; roundtrip-tested with trained models
+- **Binary `.mbt` Format** — Compact binary serialization (`serialize_model_to_binary` / `deserialize_model_from_binary`); float32 packed tensor buffer with JSON metadata header; interconvertible with JSON `.mbt`; MVP scope: Linear/MLP, 1D/2D tensors
 - **ONNX Import (Phase 1)** — Hand-written protobuf parser; Gemm/MatMul/Add/Relu → Linear conversion; float32, 1D/2D tensors, sequential MLPs
 - **safetensors Import (Phase 1)** — Binary parser for safetensors format; float32 tensors; JSON header + raw data layout
 - **E2E Import** — `load_model_from_onnx_and_safetensors`: ONNX structure + safetensors weights → MbTorch Linear layers with forward inference
@@ -51,7 +52,6 @@ MbTorch has reached its **second milestone**: tensors, reverse-mode autograd (wi
 
 ### Planned
 
-- **Binary `.mbt` Format** — Compact binary serialization (metadata + packed tensor buffer)
 - **ONNX Export** — MbTorch → ONNX direction
 - **Additional Layers** — Conv2d, attention, batch normalization
 - **Data Utilities** — Mini-batching helpers and preprocessing
@@ -188,7 +188,11 @@ Goal: Make MbTorch interoperable with existing model ecosystems and support its 
   - Export a trained PyTorch MLP to ONNX + safetensors in Python  
   - Import it into MbTorch via `load_model_from_onnx_and_safetensors`  
   - End-to-end parity verified in `examples/import_mlp` (max error ≈ 4.3e-7)
-- Binary `.mbt` format (metadata + packed tensor buffer) — planned
+- **MbTorch-native binary format (`.mbt` binary)** ✅
+  - `serialize_model_to_binary` / `deserialize_model_from_binary` APIs
+  - float32 packed tensor buffer with JSON metadata; interconvertible with JSON `.mbt`
+  - MVP scope: Linear/MLP, 1D/2D tensors (9 new tests, 115 total passing)
+- Binary `.mbt` extensions (float16, Conv, checksum) — planned
 - ONNX export (MbTorch → ONNX) — planned
 - Additional ONNX ops (Conv, BatchNorm, Attention) — planned
 - float16 / int8 dtype support — planned
