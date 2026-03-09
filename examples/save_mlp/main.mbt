@@ -1,5 +1,6 @@
 ///|
-/// Train a 2-layer MLP, serialize it to .mbt JSON, deserialize, and verify.
+/// Train a 2-layer MLP, serialize to both JSON and Binary .mbt,
+/// deserialize both, and verify outputs match.
 fn main {
   // Model: Linear(2,4) -> relu -> Linear(4,1)
   let l1 = @nn.Linear::new(2, 4, seed=42UL)
@@ -35,28 +36,47 @@ fn main {
   }
   println("Training: loss \{initial_loss} -> \{final_loss}")
 
-  // Serialize
-  let json = @io.serialize_model([("hidden", l1), ("output", l2)])
-  println("Serialized JSON length: \{json.length()} chars")
+  let layers = [("hidden", l1), ("output", l2)]
 
-  // Deserialize
-  let layers = @io.deserialize_model(json) catch {
-    _ => abort("deserialize failed")
+  // --- JSON .mbt ---
+  let json = @io.serialize_model(layers)
+  println("JSON .mbt size: \{json.length()} chars")
+  let json_layers = @io.deserialize_model(json) catch {
+    _ => abort("JSON deserialize failed")
   }
-  let loaded_l1 = layers[0].1
-  let loaded_l2 = layers[1].1
 
-  // Compare outputs
+  // --- Binary .mbt ---
+  let binary = @io.serialize_model_to_binary(layers)
+  println("Binary .mbt size: \{binary.length()} bytes")
+  let bin_layers = @io.deserialize_model_from_binary(binary) catch {
+    _ => abort("Binary deserialize failed")
+  }
+
+  // --- Compare 3 patterns ---
   let orig = l2.forward(l1.forward(x).relu())
-  let restored = loaded_l2.forward(loaded_l1.forward(x).relu())
-  let mut max_diff = 0.0
+  let from_json = json_layers[1].1.forward(
+    json_layers[0].1.forward(x).relu(),
+  )
+  let from_bin = bin_layers[1].1.forward(
+    bin_layers[0].1.forward(x).relu(),
+  )
+
+  let mut max_diff_json = 0.0
+  let mut max_diff_bin = 0.0
   for r = 0; r < 3; r = r + 1 {
-    let d = orig.data().get([r, 0]) - restored.data().get([r, 0])
-    let abs_d = if d < 0.0 { -d } else { d }
-    if abs_d > max_diff {
-      max_diff = abs_d
+    let o = orig.data().get([r, 0])
+    let j = from_json.data().get([r, 0])
+    let b = from_bin.data().get([r, 0])
+    let dj = (o - j).abs()
+    let db = (o - b).abs()
+    if dj > max_diff_json {
+      max_diff_json = dj
+    }
+    if db > max_diff_bin {
+      max_diff_bin = db
     }
   }
-  println("Max output difference after roundtrip: \{max_diff}")
+  println("Original vs JSON:   max diff = \{max_diff_json}")
+  println("Original vs Binary: max diff = \{max_diff_bin}")
   println("Roundtrip OK!")
 }
