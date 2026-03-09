@@ -180,6 +180,7 @@ fn parse_attribute_proto(
   let mut name = ""
   let mut int_value = 0L
   let mut float_value = 0.0
+  let ints : Array[Int] = []
   while pos < end {
     let (tag_val, tag_end) = read_varint(data, pos)
     let field_num = (tag_val >> 3).to_int()
@@ -207,10 +208,27 @@ fn parse_attribute_proto(
         int_value = val.to_int().to_int64()
         pos = new_pos
       }
+      7 => {
+        // ints: repeated int64 (packed or individual)
+        if wire_type == 2 {
+          // packed
+          let (field_len, data_start) = read_varint(data, pos)
+          let parsed = parse_packed_int64(data, data_start, field_len.to_int())
+          for j = 0; j < parsed.length(); j = j + 1 {
+            ints.push(parsed[j])
+          }
+          pos = data_start + field_len.to_int()
+        } else {
+          // individual varint
+          let (val, new_pos) = read_varint(data, pos)
+          ints.push(val.to_int())
+          pos = new_pos
+        }
+      }
       _ => pos = skip_field(data, pos, wire_type)
     }
   }
-  OnnxAttribute::{ name, int_value, float_value }
+  OnnxAttribute::{ name, int_value, float_value, ints }
 }
 
 ///|
@@ -393,6 +411,36 @@ fn get_int_attr(
   for i = 0; i < attributes.length(); i = i + 1 {
     if attributes[i].name == name {
       return attributes[i].int_value
+    }
+  }
+  default_
+}
+
+///|
+/// Get an ints attribute value by name, with a default.
+fn get_ints_attr(
+  attributes : Array[OnnxAttribute],
+  name : String,
+  default_ : Array[Int],
+) -> Array[Int] {
+  for i = 0; i < attributes.length(); i = i + 1 {
+    if attributes[i].name == name && attributes[i].ints.length() > 0 {
+      return attributes[i].ints
+    }
+  }
+  default_
+}
+
+///|
+/// Get a float attribute value by name, with a default.
+fn get_float_attr(
+  attributes : Array[OnnxAttribute],
+  name : String,
+  default_ : Double,
+) -> Double {
+  for i = 0; i < attributes.length(); i = i + 1 {
+    if attributes[i].name == name {
+      return attributes[i].float_value
     }
   }
   default_

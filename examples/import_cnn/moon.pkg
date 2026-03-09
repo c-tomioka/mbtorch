@@ -1,0 +1,12 @@
+import {
+  "c-tomioka/mbtorch/core/tensor",
+  "c-tomioka/mbtorch/core/autograd",
+  "c-tomioka/mbtorch/nn",
+  "c-tomioka/mbtorch/io",
+  "moonbitlang/x/fs",
+  "moonbitlang/core/json",
+}
+
+options(
+  "is-main": true,
+)

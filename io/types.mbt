@@ -49,6 +49,7 @@ pub(all) struct OnnxAttribute {
   name : String
   int_value : Int64
   float_value : Double
+  ints : Array[Int]
 }
 
 ///|
