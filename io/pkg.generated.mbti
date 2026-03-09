@@ -1,0 +1,97 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "c-tomioka/mbtorch/io"
+
+import {
+  "c-tomioka/mbtorch/core/tensor",
+  "c-tomioka/mbtorch/nn",
+}
+
+// Values
+pub fn deserialize_linear(String) -> @nn.Linear raise MbtFormatError
+
+pub fn deserialize_model(String) -> Array[(String, @nn.Linear)] raise MbtFormatError
+
+pub fn deserialize_model_from_binary(Bytes) -> Array[(String, @nn.Linear)] raise MbtFormatError
+
+pub fn export_onnx(Array[@nn.Layer], Array[Int]) -> Bytes raise OnnxError
+
+pub fn load_cnn_model_from_onnx_and_safetensors(Bytes, Bytes) -> Array[(String, @nn.Layer)] raise OnnxError
+
+pub fn load_model_from_onnx_and_safetensors(Bytes, Bytes) -> Array[(String, @nn.Linear)] raise OnnxError
+
+pub fn load_onnx_model(Bytes) -> Array[(String, @nn.Linear)] raise OnnxError
+
+pub fn load_safetensors(Bytes) -> Array[(String, @tensor.Tensor)] raise SafetensorsError
+
+pub fn parse_onnx(Bytes) -> OnnxGraph raise OnnxError
+
+pub fn parse_safetensors_header(Bytes) -> Array[SafetensorsMeta] raise SafetensorsError
+
+pub fn serialize_linear(@nn.Linear, name? : String) -> String
+
+pub fn serialize_model(Array[(String, @nn.Linear)]) -> String
+
+pub fn serialize_model_to_binary(Array[(String, @nn.Linear)]) -> Bytes
+
+// Errors
+pub(all) suberror MbtFormatError {
+  InvalidFormat(String)
+  UnsupportedVersion(Int)
+  MissingField(String)
+  ShapeMismatch(String, Array[Int], Array[Int])
+}
+
+pub(all) suberror OnnxError {
+  InvalidModel(String)
+  UnsupportedOp(String)
+  UnsupportedDtype(String)
+  ShapeMismatch(String)
+}
+
+pub(all) suberror SafetensorsError {
+  InvalidHeader(String)
+  UnsupportedDtype(String)
+  DataSizeMismatch(String)
+}
+
+// Types and methods
+pub(all) struct OnnxAttribute {
+  name : String
+  int_value : Int64
+  float_value : Double
+  ints : Array[Int]
+}
+
+pub(all) struct OnnxGraph {
+  nodes : Array[OnnxNode]
+  initializers : Array[OnnxTensor]
+  input_names : Array[String]
+  output_names : Array[String]
+}
+
+pub(all) struct OnnxNode {
+  op_type : String
+  inputs : Array[String]
+  outputs : Array[String]
+  attributes : Array[OnnxAttribute]
+}
+
+pub(all) struct OnnxTensor {
+  name : String
+  dtype : Int
+  shape : Array[Int]
+  data : Array[Double]
+}
+
+pub(all) struct SafetensorsMeta {
+  name : String
+  dtype : String
+  shape : Array[Int]
+  data_start : Int
+  data_end : Int
+}
+
+// Type aliases
+
+// Traits
+

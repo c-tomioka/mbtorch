@@ -4,9 +4,9 @@
 /// x = [[1.0, 1.0]] → y = x @ W + B = [[6.0]]
 test "e2e onnx structure with safetensors weights single linear" {
   // Build ONNX bytes: Gemm node with no initializers
-  let node = build_node_proto("Gemm", ["X", "W", "B"], ["Y"], [])
-  let graph = build_graph_proto([node], [], ["X"], ["Y"])
-  let onnx_data = build_model_proto(graph)
+  let node = test_build_node_proto("Gemm", ["X", "W", "B"], ["Y"], [])
+  let graph = test_build_graph_proto([node], [], ["X"], ["Y"])
+  let onnx_data = test_build_model_proto(graph)
   // Build safetensors bytes: W [2,1] and B [1]
   let st_data = build_safetensors_with_tensors([
     ("W", [2, 1], [2.0, 3.0]),
@@ -30,11 +30,11 @@ test "e2e onnx structure with safetensors weights single linear" {
 /// x = [[1,1]] → h = [[1.5, -0.5]] → relu → [[1.5, 0.0]] → y = [[1.5]]
 test "e2e onnx structure with safetensors weights two layer mlp" {
   // Build ONNX bytes: Gemm → Relu → Gemm, no initializers
-  let node1 = build_node_proto("Gemm", ["X", "W1", "B1"], ["H"], [])
-  let relu = build_node_proto("Relu", ["H"], ["H_relu"], [])
-  let node2 = build_node_proto("Gemm", ["H_relu", "W2", "B2"], ["Y"], [])
-  let graph = build_graph_proto([node1, relu, node2], [], ["X"], ["Y"])
-  let onnx_data = build_model_proto(graph)
+  let node1 = test_build_node_proto("Gemm", ["X", "W1", "B1"], ["H"], [])
+  let relu = test_build_node_proto("Relu", ["H"], ["H_relu"], [])
+  let node2 = test_build_node_proto("Gemm", ["H_relu", "W2", "B2"], ["Y"], [])
+  let graph = test_build_graph_proto([node1, relu, node2], [], ["X"], ["Y"])
+  let onnx_data = test_build_model_proto(graph)
   // Build safetensors bytes: 4 tensors
   let st_data = build_safetensors_with_tensors([
     ("W1", [2, 2], [1.0, 0.0, 0.0, 1.0]),

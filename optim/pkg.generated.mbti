@@ -1,0 +1,39 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "c-tomioka/mbtorch/optim"
+
+import {
+  "c-tomioka/mbtorch/core/autograd",
+  "c-tomioka/mbtorch/core/tensor",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Adam {
+  params : Array[@autograd.Variable]
+  lr : Double
+  beta1 : Double
+  beta2 : Double
+  epsilon : Double
+  mut t : Int
+  m : Array[@tensor.Tensor]
+  v : Array[@tensor.Tensor]
+}
+pub fn Adam::new(Array[@autograd.Variable], lr? : Double, beta1? : Double, beta2? : Double, epsilon? : Double) -> Self
+pub fn Adam::step(Self) -> Unit
+pub fn Adam::zero_grad(Self) -> Unit
+
+pub struct SGD {
+  params : Array[@autograd.Variable]
+  lr : Double
+}
+pub fn SGD::new(Array[@autograd.Variable], lr? : Double) -> Self
+pub fn SGD::step(Self) -> Unit
+pub fn SGD::zero_grad(Self) -> Unit
+
+// Type aliases
+
+// Traits
+

@@ -1,8 +1,10 @@
-// Protobuf encoding helpers for test fixtures
+// ONNX parser tests
+// Note: encoding helpers are duplicated here because _test.mbt files are
+// blackbox tests and cannot access package-private functions from onnx_encode.mbt.
+// The canonical production versions live in onnx_encode.mbt for use by export.mbt.
 
 ///|
-/// Encode a UInt64 as a protobuf varint.
-fn encode_varint(value : UInt64) -> Array[Byte] {
+fn test_encode_varint(value : UInt64) -> Array[Byte] {
   let result : Array[Byte] = []
   let mut v = value
   while v >= 0x80UL {
@@ -14,61 +16,48 @@ fn encode_varint(value : UInt64) -> Array[Byte] {
 }
 
 ///|
-/// Encode a protobuf field tag.
-fn encode_tag(field_num : Int, wire_type : Int) -> Array[Byte] {
-  encode_varint(((field_num << 3) | wire_type).to_uint64())
+fn test_encode_tag(field_num : Int, wire_type : Int) -> Array[Byte] {
+  test_encode_varint(((field_num << 3) | wire_type).to_uint64())
 }
 
 ///|
-/// Append all bytes from source to target.
-fn append_all(target : Array[Byte], source : Array[Byte]) -> Unit {
+fn test_append_all(target : Array[Byte], source : Array[Byte]) -> Unit {
   for i = 0; i < source.length(); i = i + 1 {
     target.push(source[i])
   }
 }
 
 ///|
-/// Encode a length-delimited field (wire type 2).
-fn encode_len_delimited(field_num : Int, content : Array[Byte]) -> Array[Byte] {
+fn test_encode_len_delimited(
+  field_num : Int,
+  content : Array[Byte],
+) -> Array[Byte] {
   let result : Array[Byte] = []
-  append_all(result, encode_tag(field_num, 2))
-  append_all(result, encode_varint(content.length().to_uint64()))
-  append_all(result, content)
+  test_append_all(result, test_encode_tag(field_num, 2))
+  test_append_all(result, test_encode_varint(content.length().to_uint64()))
+  test_append_all(result, content)
   result
 }
 
 ///|
-/// Encode a varint field (wire type 0).
-fn encode_varint_field(field_num : Int, value : UInt64) -> Array[Byte] {
+fn test_encode_varint_field(field_num : Int, value : UInt64) -> Array[Byte] {
   let result : Array[Byte] = []
-  append_all(result, encode_tag(field_num, 0))
-  append_all(result, encode_varint(value))
+  test_append_all(result, test_encode_tag(field_num, 0))
+  test_append_all(result, test_encode_varint(value))
   result
 }
 
 ///|
-/// Encode a string field (wire type 2).
-fn encode_string_field(field_num : Int, s : String) -> Array[Byte] {
+fn test_encode_string_field(field_num : Int, s : String) -> Array[Byte] {
   let bytes : Array[Byte] = []
   for i = 0; i < s.length(); i = i + 1 {
     bytes.push(s[i].to_int().to_byte())
   }
-  encode_len_delimited(field_num, bytes)
+  test_encode_len_delimited(field_num, bytes)
 }
 
 ///|
-/// Encode a fixed32 field (wire type 5).
-fn encode_fixed32_field(field_num : Int, b : Array[Byte]) -> Array[Byte] {
-  let result : Array[Byte] = []
-  append_all(result, encode_tag(field_num, 5))
-  append_all(result, b)
-  result
-}
-
-///|
-/// Encode a Double as IEEE 754 float32 LE (4 bytes).
-/// Reused from safetensors_test pattern.
-fn onnx_float32_to_le_bytes(value : Double) -> Array[Byte] {
+fn test_float32_to_le_bytes(value : Double) -> Array[Byte] {
   if value == 0.0 {
     return [b'\x00', b'\x00', b'\x00', b'\x00']
   }
@@ -100,139 +89,93 @@ fn onnx_float32_to_le_bytes(value : Double) -> Array[Byte] {
 }
 
 ///|
-/// Build a TensorProto with float_data (packed float32).
-/// TensorProto fields: 1=dims(packed int64), 2=data_type(varint), 4=float_data(packed f32), 8=name
-fn build_tensor_proto(
+fn test_build_tensor_proto(
   name : String,
   shape : Array[Int],
   values : Array[Double],
 ) -> Array[Byte] {
   let content : Array[Byte] = []
-  // Field 1: dims (packed int64 varints)
   let dims_content : Array[Byte] = []
   for i = 0; i < shape.length(); i = i + 1 {
-    append_all(dims_content, encode_varint(shape[i].to_uint64()))
+    test_append_all(dims_content, test_encode_varint(shape[i].to_uint64()))
   }
-  append_all(content, encode_len_delimited(1, dims_content))
-  // Field 2: data_type = 1 (FLOAT)
-  append_all(content, encode_varint_field(2, 1UL))
-  // Field 4: float_data (packed float32 LE bytes)
+  test_append_all(content, test_encode_len_delimited(1, dims_content))
+  test_append_all(content, test_encode_varint_field(2, 1UL))
   let float_content : Array[Byte] = []
   for i = 0; i < values.length(); i = i + 1 {
-    append_all(float_content, onnx_float32_to_le_bytes(values[i]))
+    test_append_all(float_content, test_float32_to_le_bytes(values[i]))
   }
-  append_all(content, encode_len_delimited(4, float_content))
-  // Field 8: name
-  append_all(content, encode_string_field(8, name))
+  test_append_all(content, test_encode_len_delimited(4, float_content))
+  test_append_all(content, test_encode_string_field(8, name))
   content
 }
 
 ///|
-/// Build a TensorProto with raw_data instead of float_data.
-fn build_tensor_proto_raw(
-  name : String,
-  shape : Array[Int],
-  values : Array[Double],
-) -> Array[Byte] {
-  let content : Array[Byte] = []
-  // Field 1: dims
-  let dims_content : Array[Byte] = []
-  for i = 0; i < shape.length(); i = i + 1 {
-    append_all(dims_content, encode_varint(shape[i].to_uint64()))
-  }
-  append_all(content, encode_len_delimited(1, dims_content))
-  // Field 2: data_type = 1 (FLOAT)
-  append_all(content, encode_varint_field(2, 1UL))
-  // Field 8: name
-  append_all(content, encode_string_field(8, name))
-  // Field 9: raw_data (LE float32 bytes)
-  let raw_content : Array[Byte] = []
-  for i = 0; i < values.length(); i = i + 1 {
-    append_all(raw_content, onnx_float32_to_le_bytes(values[i]))
-  }
-  append_all(content, encode_len_delimited(9, raw_content))
-  content
-}
-
-///|
-/// Build a NodeProto.
-/// NodeProto fields: 1=input(repeated string), 2=output(repeated string), 4=op_type, 5=attribute
-fn build_node_proto(
+fn test_build_node_proto(
   op_type : String,
   inputs : Array[String],
   outputs : Array[String],
   int_attrs : Array[(String, Int64)],
 ) -> Array[Byte] {
   let content : Array[Byte] = []
-  // Field 1: inputs (repeated string, each as separate LEN field)
   for i = 0; i < inputs.length(); i = i + 1 {
-    append_all(content, encode_string_field(1, inputs[i]))
+    test_append_all(content, test_encode_string_field(1, inputs[i]))
   }
-  // Field 2: outputs
   for i = 0; i < outputs.length(); i = i + 1 {
-    append_all(content, encode_string_field(2, outputs[i]))
+    test_append_all(content, test_encode_string_field(2, outputs[i]))
   }
-  // Field 4: op_type
-  append_all(content, encode_string_field(4, op_type))
-  // Field 5: attributes (each as sub-message)
+  test_append_all(content, test_encode_string_field(4, op_type))
   for i = 0; i < int_attrs.length(); i = i + 1 {
     let (attr_name, attr_val) = int_attrs[i]
     let attr_content : Array[Byte] = []
-    // AttributeProto field 1: name
-    append_all(attr_content, encode_string_field(1, attr_name))
-    // AttributeProto field 3: i (int64 varint)
-    append_all(
+    test_append_all(attr_content, test_encode_string_field(1, attr_name))
+    test_append_all(
       attr_content,
-      encode_varint_field(3, attr_val.to_int().to_uint64()),
+      test_encode_varint_field(3, attr_val.to_int().to_uint64()),
     )
-    append_all(content, encode_len_delimited(5, attr_content))
+    test_append_all(content, test_encode_len_delimited(5, attr_content))
   }
   content
 }
 
 ///|
-/// Build a minimal ValueInfoProto (only name field needed).
-fn build_value_info(name : String) -> Array[Byte] {
-  // ValueInfoProto field 1: name
-  encode_string_field(1, name)
+fn test_build_value_info(name : String) -> Array[Byte] {
+  test_encode_string_field(1, name)
 }
 
 ///|
-/// Build a GraphProto.
-/// GraphProto fields: 1=node, 5=initializer, 11=input, 12=output
-fn build_graph_proto(
+fn test_build_graph_proto(
   nodes : Array[Array[Byte]],
   inits : Array[Array[Byte]],
   inputs : Array[String],
   outputs : Array[String],
 ) -> Array[Byte] {
   let content : Array[Byte] = []
-  // Field 1: nodes (each as LEN)
   for i = 0; i < nodes.length(); i = i + 1 {
-    append_all(content, encode_len_delimited(1, nodes[i]))
+    test_append_all(content, test_encode_len_delimited(1, nodes[i]))
   }
-  // Field 5: initializers (each as LEN)
   for i = 0; i < inits.length(); i = i + 1 {
-    append_all(content, encode_len_delimited(5, inits[i]))
+    test_append_all(content, test_encode_len_delimited(5, inits[i]))
   }
-  // Field 11: inputs (each as ValueInfoProto LEN)
   for i = 0; i < inputs.length(); i = i + 1 {
-    append_all(content, encode_len_delimited(11, build_value_info(inputs[i])))
+    test_append_all(
+      content,
+      test_encode_len_delimited(11, test_build_value_info(inputs[i])),
+    )
   }
-  // Field 12: outputs (each as ValueInfoProto LEN)
   for i = 0; i < outputs.length(); i = i + 1 {
-    append_all(content, encode_len_delimited(12, build_value_info(outputs[i])))
+    test_append_all(
+      content,
+      test_encode_len_delimited(12, test_build_value_info(outputs[i])),
+    )
   }
   content
 }
 
 ///|
-/// Build a complete ModelProto wrapping a graph.
-/// ModelProto field 7: graph (LEN)
-fn build_model_proto(graph : Array[Byte]) -> Bytes {
+fn test_build_model_proto(graph : Array[Byte]) -> Bytes {
   let content : Array[Byte] = []
-  // Field 7: graph
-  append_all(content, encode_len_delimited(7, graph))
+  test_append_all(content, test_encode_len_delimited(7, graph))
   Bytes::from_array(content)
 }
 
@@ -241,12 +184,20 @@ fn build_model_proto(graph : Array[Byte]) -> Bytes {
 ///|
 /// T1: Parse a single Gemm node graph
 test "parse_onnx single gemm node" {
-  // weight [2,3], bias [3]
-  let weight = build_tensor_proto("W", [2, 3], [1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-  let bias = build_tensor_proto("B", [3], [0.1, 0.2, 0.3])
-  let node = build_node_proto("Gemm", ["X", "W", "B"], ["Y"], [("transB", 1L)])
-  let graph = build_graph_proto([node], [weight, bias], ["X"], ["Y"])
-  let model_bytes = build_model_proto(graph)
+  let weight = test_build_tensor_proto(
+    "W",
+    [2, 3],
+    [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+  )
+  let bias = test_build_tensor_proto("B", [3], [0.1, 0.2, 0.3])
+  let node = test_build_node_proto(
+    "Gemm",
+    ["X", "W", "B"],
+    ["Y"],
+    [("transB", 1L)],
+  )
+  let graph = test_build_graph_proto([node], [weight, bias], ["X"], ["Y"])
+  let model_bytes = test_build_model_proto(graph)
   let g = @io.parse_onnx(model_bytes)
   assert_eq(g.nodes.length(), 1)
   assert_eq(g.nodes[0].op_type, "Gemm")
@@ -261,17 +212,19 @@ test "parse_onnx single gemm node" {
 ///|
 /// T2: Load single Gemm → Linear, verify weight/bias values
 test "load_onnx_model single linear" {
-  // weight [3,2] (transB=0, no transpose), bias [2]
-  let weight = build_tensor_proto("W", [3, 2], [1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-  let bias = build_tensor_proto("B", [2], [0.1, 0.2])
-  let node = build_node_proto("Gemm", ["X", "W", "B"], ["Y"], [])
-  let graph = build_graph_proto([node], [weight, bias], ["X"], ["Y"])
-  let model_bytes = build_model_proto(graph)
+  let weight = test_build_tensor_proto(
+    "W",
+    [3, 2],
+    [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+  )
+  let bias = test_build_tensor_proto("B", [2], [0.1, 0.2])
+  let node = test_build_node_proto("Gemm", ["X", "W", "B"], ["Y"], [])
+  let graph = test_build_graph_proto([node], [weight, bias], ["X"], ["Y"])
+  let model_bytes = test_build_model_proto(graph)
   let layers = @io.load_onnx_model(model_bytes)
   assert_eq(layers.length(), 1)
   let (name, linear) = layers[0]
   assert_eq(name, "Y")
-  // weight shape should be [3, 2] (no transpose)
   let params = linear.parameters()
   assert_eq(params[0].shape(), [3, 2])
   assert_eq(params[1].shape(), [2])
@@ -280,43 +233,51 @@ test "load_onnx_model single linear" {
 ///|
 /// T3: Load Gemm with transB=1, verify weight is transposed
 test "load_onnx_model gemm transB" {
-  // ONNX weight [2,3] with transB=1 → MbTorch weight [3,2]
-  // out_features = first dim of W (before transpose) = 2
-  let weight = build_tensor_proto("W", [2, 3], [1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-  let bias = build_tensor_proto("B", [2], [0.1, 0.2])
-  let node = build_node_proto("Gemm", ["X", "W", "B"], ["Y"], [("transB", 1L)])
-  let graph = build_graph_proto([node], [weight, bias], ["X"], ["Y"])
-  let model_bytes = build_model_proto(graph)
+  let weight = test_build_tensor_proto(
+    "W",
+    [2, 3],
+    [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+  )
+  let bias = test_build_tensor_proto("B", [2], [0.1, 0.2])
+  let node = test_build_node_proto(
+    "Gemm",
+    ["X", "W", "B"],
+    ["Y"],
+    [("transB", 1L)],
+  )
+  let graph = test_build_graph_proto([node], [weight, bias], ["X"], ["Y"])
+  let model_bytes = test_build_model_proto(graph)
   let layers = @io.load_onnx_model(model_bytes)
   assert_eq(layers.length(), 1)
-  // transB=1: [2,3] → transpose → [3,2]
   let params = layers[0].1.parameters()
   assert_eq(params[0].shape(), [3, 2])
-  // After transpose: row 0 was col 0 of original [1,4], row 1 was [2,5], row 2 was [3,6]
   let eps = 1.0e-6
   let w = params[0].data().to_array()
-  assert_true((w[0] - 1.0).abs() < eps) // [0,0]
-  assert_true((w[1] - 4.0).abs() < eps) // [0,1]
-  assert_true((w[2] - 2.0).abs() < eps) // [1,0]
-  assert_true((w[3] - 5.0).abs() < eps) // [1,1]
+  assert_true((w[0] - 1.0).abs() < eps)
+  assert_true((w[1] - 4.0).abs() < eps)
+  assert_true((w[2] - 2.0).abs() < eps)
+  assert_true((w[3] - 5.0).abs() < eps)
 }
 
 ///|
 /// T4: Two Gemm + Relu → 2 Linear layers
 test "load_onnx_model two layer mlp" {
-  let w1 = build_tensor_proto("W1", [2, 4], [
+  let w1 = test_build_tensor_proto("W1", [2, 4], [
     1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0,
   ])
-  let b1 = build_tensor_proto("B1", [4], [0.1, 0.2, 0.3, 0.4])
-  let w2 = build_tensor_proto("W2", [4, 1], [1.0, 1.0, 1.0, 1.0])
-  let b2 = build_tensor_proto("B2", [1], [0.0])
-  let node1 = build_node_proto("Gemm", ["X", "W1", "B1"], ["H"], [])
-  let relu = build_node_proto("Relu", ["H"], ["H_relu"], [])
-  let node2 = build_node_proto("Gemm", ["H_relu", "W2", "B2"], ["Y"], [])
-  let graph = build_graph_proto([node1, relu, node2], [w1, b1, w2, b2], ["X"], [
-    "Y",
-  ])
-  let model_bytes = build_model_proto(graph)
+  let b1 = test_build_tensor_proto("B1", [4], [0.1, 0.2, 0.3, 0.4])
+  let w2 = test_build_tensor_proto("W2", [4, 1], [1.0, 1.0, 1.0, 1.0])
+  let b2 = test_build_tensor_proto("B2", [1], [0.0])
+  let node1 = test_build_node_proto("Gemm", ["X", "W1", "B1"], ["H"], [])
+  let relu = test_build_node_proto("Relu", ["H"], ["H_relu"], [])
+  let node2 = test_build_node_proto("Gemm", ["H_relu", "W2", "B2"], ["Y"], [])
+  let graph = test_build_graph_proto(
+    [node1, relu, node2],
+    [w1, b1, w2, b2],
+    ["X"],
+    ["Y"],
+  )
+  let model_bytes = test_build_model_proto(graph)
   let layers = @io.load_onnx_model(model_bytes)
   assert_eq(layers.length(), 2)
   assert_eq(layers[0].0, "H")
@@ -326,9 +287,9 @@ test "load_onnx_model two layer mlp" {
 ///|
 /// T5: Reject unsupported op
 test "load_onnx_model rejects unsupported op" {
-  let node = build_node_proto("Conv", ["X"], ["Y"], [])
-  let graph = build_graph_proto([node], [], ["X"], ["Y"])
-  let model_bytes = build_model_proto(graph)
+  let node = test_build_node_proto("Conv", ["X"], ["Y"], [])
+  let graph = test_build_graph_proto([node], [], ["X"], ["Y"])
+  let model_bytes = test_build_model_proto(graph)
   let mut got_error = false
   try {
     let _ = @io.load_onnx_model(model_bytes)
@@ -342,17 +303,21 @@ test "load_onnx_model rejects unsupported op" {
 ///|
 /// T6: Reject non-float dtype
 test "load_onnx_model rejects non_float" {
-  // Build a tensor with dtype=7 (INT64) manually
   let content : Array[Byte] = []
   let dims_content : Array[Byte] = []
-  append_all(dims_content, encode_varint(2UL))
-  append_all(content, encode_len_delimited(1, dims_content))
-  append_all(content, encode_varint_field(2, 7UL)) // dtype=7 (INT64)
-  append_all(content, encode_string_field(8, "bad_tensor"))
-  let node = build_node_proto("Gemm", ["X", "bad_tensor", "B"], ["Y"], [])
-  let bias = build_tensor_proto("B", [2], [0.0, 0.0])
-  let graph = build_graph_proto([node], [content, bias], ["X"], ["Y"])
-  let model_bytes = build_model_proto(graph)
+  test_append_all(dims_content, test_encode_varint(2UL))
+  test_append_all(content, test_encode_len_delimited(1, dims_content))
+  test_append_all(content, test_encode_varint_field(2, 7UL))
+  test_append_all(content, test_encode_string_field(8, "bad_tensor"))
+  let node = test_build_node_proto(
+    "Gemm",
+    ["X", "bad_tensor", "B"],
+    ["Y"],
+    [],
+  )
+  let bias = test_build_tensor_proto("B", [2], [0.0, 0.0])
+  let graph = test_build_graph_proto([node], [content, bias], ["X"], ["Y"])
+  let model_bytes = test_build_model_proto(graph)
   let mut got_error = false
   try {
     let _ = @io.load_onnx_model(model_bytes)
@@ -366,14 +331,11 @@ test "load_onnx_model rejects non_float" {
 ///|
 /// T7: Forward pass with loaded model matches manual computation
 test "load_onnx_model forward matches" {
-  // Simple: y = x @ W + b, where W=[2,1], b=[1]
-  // W = [[2.0], [3.0]], b = [1.0]
-  // x = [1.0, 1.0] → y = 1*2 + 1*3 + 1 = 6.0
-  let weight = build_tensor_proto("W", [2, 1], [2.0, 3.0])
-  let bias = build_tensor_proto("B", [1], [1.0])
-  let node = build_node_proto("Gemm", ["X", "W", "B"], ["Y"], [])
-  let graph = build_graph_proto([node], [weight, bias], ["X"], ["Y"])
-  let model_bytes = build_model_proto(graph)
+  let weight = test_build_tensor_proto("W", [2, 1], [2.0, 3.0])
+  let bias = test_build_tensor_proto("B", [1], [1.0])
+  let node = test_build_node_proto("Gemm", ["X", "W", "B"], ["Y"], [])
+  let graph = test_build_graph_proto([node], [weight, bias], ["X"], ["Y"])
+  let model_bytes = test_build_model_proto(graph)
   let layers = @io.load_onnx_model(model_bytes)
   let linear = layers[0].1
   let x = @autograd.Variable::new(@tensor.Tensor::from_array_2d([[1.0, 1.0]]))

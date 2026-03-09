@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "username/mbtorch/core/autograd"
+package "c-tomioka/mbtorch/core/autograd"
 
 import {
-  "username/mbtorch/core/tensor",
+  "c-tomioka/mbtorch/core/tensor",
 }
 
 // Values
@@ -23,8 +23,10 @@ pub fn Variable::new(@tensor.Tensor, requires_grad? : Bool) -> Self
 pub fn Variable::relu(Self) -> Self
 pub fn Variable::set_data(Self, @tensor.Tensor) -> Unit
 pub fn Variable::shape(Self) -> Array[Int]
+pub fn Variable::sigmoid(Self) -> Self
 pub fn Variable::sub(Self, Self) -> Self
 pub fn Variable::sum(Self) -> Self
+pub fn Variable::tanh(Self) -> Self
 pub fn Variable::zero_grad(Self) -> Unit
 
 // Type aliases

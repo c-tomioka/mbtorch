@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "c-tomioka/mbtorch/cmd/main"
+package "c-tomioka/mbtorch/examples/import_mlp"
 
 // Values
 

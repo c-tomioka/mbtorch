@@ -1,8 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "username/mbtorch/nn"
+package "c-tomioka/mbtorch/nn"
 
 import {
-  "username/mbtorch/core/autograd",
+  "c-tomioka/mbtorch/core/autograd",
+  "c-tomioka/mbtorch/core/tensor",
 }
 
 // Values
@@ -10,11 +11,43 @@ import {
 // Errors
 
 // Types and methods
+pub struct BatchNorm2d {
+  gamma : @tensor.Tensor
+  beta : @tensor.Tensor
+  running_mean : @tensor.Tensor
+  running_var : @tensor.Tensor
+  eps : Double
+}
+pub fn BatchNorm2d::forward(Self, @autograd.Variable) -> @autograd.Variable
+pub fn BatchNorm2d::from_tensors(gamma~ : @tensor.Tensor, beta~ : @tensor.Tensor, mean~ : @tensor.Tensor, var_~ : @tensor.Tensor, eps? : Double) -> Self
+pub fn BatchNorm2d::parameters(Self) -> Array[@autograd.Variable]
+
+pub struct Conv2d {
+  weight : @autograd.Variable
+  bias : @autograd.Variable?
+  stride : Array[Int]
+  padding : Array[Int]
+}
+pub fn Conv2d::forward(Self, @autograd.Variable) -> @autograd.Variable
+pub fn Conv2d::from_tensors(@tensor.Tensor, bias_data? : @tensor.Tensor?, stride? : Array[Int], padding? : Array[Int]) -> Self
+pub fn Conv2d::parameters(Self) -> Array[@autograd.Variable]
+
+pub(all) enum Layer {
+  Linear(Linear)
+  Conv2d(Conv2d)
+  BatchNorm2d(BatchNorm2d)
+  Relu
+  Flatten
+}
+pub fn Layer::forward(Self, @autograd.Variable) -> @autograd.Variable
+pub fn Layer::parameters(Self) -> Array[@autograd.Variable]
+
 pub struct Linear {
   weight : @autograd.Variable
   bias : @autograd.Variable
 }
 pub fn Linear::forward(Self, @autograd.Variable) -> @autograd.Variable
+pub fn Linear::from_tensors(@tensor.Tensor, @tensor.Tensor) -> Self
 pub fn Linear::new(Int, Int, seed? : UInt64) -> Self
 pub fn Linear::parameters(Self) -> Array[@autograd.Variable]
 
