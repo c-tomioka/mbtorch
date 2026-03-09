@@ -26,6 +26,50 @@ pub(all) struct SafetensorsMeta {
 }
 
 ///|
+/// Error type for ONNX format issues
+pub(all) suberror OnnxError {
+  InvalidModel(String)
+  UnsupportedOp(String)
+  UnsupportedDtype(String)
+  ShapeMismatch(String)
+}
+
+///|
+/// Parsed ONNX tensor (initializer / weight)
+pub(all) struct OnnxTensor {
+  name : String
+  dtype : Int // ONNX data_type enum (1=FLOAT)
+  shape : Array[Int]
+  data : Array[Double]
+}
+
+///|
+/// Parsed ONNX attribute (e.g. transB=1)
+pub(all) struct OnnxAttribute {
+  name : String
+  int_value : Int64
+  float_value : Double
+}
+
+///|
+/// Parsed ONNX node (single op)
+pub(all) struct OnnxNode {
+  op_type : String
+  inputs : Array[String]
+  outputs : Array[String]
+  attributes : Array[OnnxAttribute]
+}
+
+///|
+/// Parsed ONNX graph
+pub(all) struct OnnxGraph {
+  nodes : Array[OnnxNode]
+  initializers : Array[OnnxTensor]
+  input_names : Array[String]
+  output_names : Array[String]
+}
+
+///|
 /// DTO for tensor data in JSON
 priv struct TensorData {
   shape : Array[Int]
