@@ -184,6 +184,10 @@ Goal: Make MbTorch interoperable with existing model ecosystems and support its 
   - PyTorch → torch.onnx.export + safetensors.save → MbTorch import → inference verified
 - **MbTorch-native format (`.mbt` JSON)** ✅
   - `serialize_model` / `deserialize_model` for JSON-based model I/O
+- **End-to-end PyTorch → MbTorch import demo** ✅  
+  - Export a trained PyTorch MLP to ONNX + safetensors in Python  
+  - Import it into MbTorch via `load_model_from_onnx_and_safetensors`  
+  - End-to-end parity verified in `examples/import_mlp` (max error ≈ 4.3e-7)
 - Binary `.mbt` format (metadata + packed tensor buffer) — planned
 - ONNX export (MbTorch → ONNX) — planned
 - Additional ONNX ops (Conv, BatchNorm, Attention) — planned
