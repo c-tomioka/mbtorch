@@ -26,30 +26,27 @@ pub fn Tensor::from_array_2d(data : Array[Array[Double]]) -> Tensor {
 }
 
 ///|
-pub fn Tensor::zeros(shape : Array[Int]) -> Tensor {
+fn shape_numel(shape : Array[Int]) -> Int {
   let mut total = 1
   for i = 0; i < shape.length(); i = i + 1 {
     total = total * shape[i]
   }
-  { data_: Array::make(total, 0.0), shape_: shape.copy() }
+  total
+}
+
+///|
+pub fn Tensor::zeros(shape : Array[Int]) -> Tensor {
+  { data_: Array::make(shape_numel(shape), 0.0), shape_: shape.copy() }
 }
 
 ///|
 pub fn Tensor::ones(shape : Array[Int]) -> Tensor {
-  let mut total = 1
-  for i = 0; i < shape.length(); i = i + 1 {
-    total = total * shape[i]
-  }
-  { data_: Array::make(total, 1.0), shape_: shape.copy() }
+  { data_: Array::make(shape_numel(shape), 1.0), shape_: shape.copy() }
 }
 
 ///|
 pub fn Tensor::fill(shape : Array[Int], value : Double) -> Tensor {
-  let mut total = 1
-  for i = 0; i < shape.length(); i = i + 1 {
-    total = total * shape[i]
-  }
-  { data_: Array::make(total, value), shape_: shape.copy() }
+  { data_: Array::make(shape_numel(shape), value), shape_: shape.copy() }
 }
 
 ///|
@@ -65,10 +62,7 @@ pub fn Tensor::from_array_with_shape(
   data : Array[Double],
   shape : Array[Int],
 ) -> Tensor {
-  let mut expected = 1
-  for i = 0; i < shape.length(); i = i + 1 {
-    expected = expected * shape[i]
-  }
+  let expected = shape_numel(shape)
   guard data.length() == expected else {
     abort(
       "from_array_with_shape: data length \{data.length()} does not match shape \{shape} (expected \{expected})",
@@ -80,10 +74,7 @@ pub fn Tensor::from_array_with_shape(
 ///|
 /// Simple pseudo-random tensor with values in [-1, 1), using LCG.
 pub fn Tensor::rand(shape : Array[Int], seed? : UInt64 = 42UL) -> Tensor {
-  let mut total = 1
-  for i = 0; i < shape.length(); i = i + 1 {
-    total = total * shape[i]
-  }
+  let total = shape_numel(shape)
   let data = Array::make(total, 0.0)
   let mut state = seed
   for i = 0; i < total; i = i + 1 {
