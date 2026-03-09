@@ -31,27 +31,28 @@ MbTorch focuses on small and mid-sized neural networks and edge-centric tasks, f
 
 ## Project Status
 
-MbTorch has reached its **first MVP**: tensors, reverse-mode autograd, `Linear`/MLP layers, SGD optimizer, and JSON-based model serialization are all implemented and tested (78 tests passing). You can define, train, save, and restore a small neural network entirely in MoonBit today.
+MbTorch has reached its **second milestone**: tensors, reverse-mode autograd (with tanh/sigmoid), `Linear`/MLP layers, SGD and Adam optimizers, JSON-based model serialization, and ONNX/safetensors import (Phase 1) are all implemented and tested (106 tests passing, wasm-gc build green). You can define, train, save/restore, and import pretrained neural networks entirely in MoonBit today.
 
-**Next up:** ONNX import (subset), safetensors weight loading, binary `.mbt` format, Adam optimizer, and additional layer types.
+**Next up:** Python export helper scripts, `examples/import_mlp` demo, binary `.mbt` format, Conv2d, and attention layers.
 
 ## Features
 
 ### Implemented ✅
 
-- **Tensor Operations** — Multi-dimensional tensors with add, sub, mul, scale, matmul, transpose, sum; constructors for scalar, 1D, 2D, zeros, ones, rand
-- **Automatic Differentiation** — Reverse-mode autograd engine (`Variable`, `backward`) with gradient support for add/sub/mul/matmul/sum/relu/expand_rows; includes `grad_check` for numerical verification
-- **Neural Network Layers** — `Linear` layer (weight, bias, forward, `from_tensors` for deserialization); composable into multi-layer MLPs with ReLU activation
-- **Optimizers** — `SGD` optimizer with `new`, `step()`, `zero_grad()`
+- **Tensor Operations** — Multi-dimensional tensors with add, sub, mul, div, scale, matmul, transpose, sum, sqrt; constructors for scalar, 1D, 2D, zeros, ones, rand
+- **Automatic Differentiation** — Reverse-mode autograd engine (`Variable`, `backward`) with gradient support for add/sub/mul/matmul/sum/relu/tanh/sigmoid/expand_rows; includes `grad_check` for numerical verification
+- **Neural Network Layers** — `Linear` layer (weight, bias, forward, `from_tensors` for deserialization); composable into multi-layer MLPs with ReLU, tanh, and sigmoid activations
+- **Optimizers** — `SGD` and `Adam` optimizers with `new`, `step()`, `zero_grad()`
 - **Model I/O** — Serialize/deserialize models to `.mbt`-style JSON via `serialize_model` / `deserialize_model`; roundtrip-tested with trained models
-- **Examples** — 4 working demos: `basic_tensor_ops`, `basic_autograd`, `basic_mlp` (training), `save_mlp` (serialization roundtrip)
+- **ONNX Import (Phase 1)** — Hand-written protobuf parser; Gemm/MatMul/Add/Relu → Linear conversion; float32, 1D/2D tensors, sequential MLPs
+- **safetensors Import (Phase 1)** — Binary parser for safetensors format; float32 tensors; JSON header + raw data layout
+- **E2E Import** — `load_model_from_onnx_and_safetensors`: ONNX structure + safetensors weights → MbTorch Linear layers with forward inference
+- **Examples** — 5 working demos: `basic_tensor_ops`, `basic_autograd`, `basic_mlp` (SGD/Adam comparison), `save_mlp` (serialization roundtrip), `web_mlp` (6-variant browser demo: SGD/Adam × ReLU/tanh/sigmoid)
 
 ### Planned
 
-- **ONNX Import** — Graph structure and operator import for small MLPs/CNNs
-- **safetensors Import** — Efficient, safe weight loading from HuggingFace ecosystem
 - **Binary `.mbt` Format** — Compact binary serialization (metadata + packed tensor buffer)
-- **Additional Optimizers** — Adam, learning rate schedulers
+- **ONNX Export** — MbTorch → ONNX direction
 - **Additional Layers** — Conv2d, attention, batch normalization
 - **Data Utilities** — Mini-batching helpers and preprocessing
 - **Edge & Browser Runtime** — WASM-targeted inference and lightweight fine-tuning
@@ -117,9 +118,9 @@ mbtorch/
 ├── core/
 │   ├── tensor/     # Tensor types, constructors, and numeric ops
 │   └── autograd/   # Reverse-mode autograd engine (Variable, backward)
-├── nn/             # Neural network layers (Linear, ReLU)
-├── optim/          # Optimization algorithms (SGD)
-├── io/             # Model import/export: .mbt JSON (✅), ONNX, safetensors (planned)
+├── nn/             # Neural network layers (Linear, ReLU, tanh, sigmoid)
+├── optim/          # Optimization algorithms (SGD, Adam)
+├── io/             # Model import/export: .mbt JSON (✅), ONNX (✅), safetensors (✅)
 ├── examples/       # Working demos
 └── tests/          # Unit and integration tests
 ```
@@ -154,53 +155,58 @@ MbTorch is developed with **Test-Driven Development (TDD)** and AI-assisted codi
 
 ## Roadmap
 
-### Phase 1: Core and TDD Foundation
+### Phase 1: Core and TDD Foundation ✅
 
 Goal: Establish a minimal but solid core in MoonBit, with TDD and CI as the default workflow.
 
 - Project layout and build/test tooling set up ✅
-- Tensor type and core operations (add, mul, matmul, basic reductions) ✅
+- Tensor type and core operations (add, mul, div, sqrt, matmul, basic reductions) ✅
 - Autograd engine (reverse-mode) for scalars, 1D, and 2D tensors ✅
-- Basic neural network layers: `Linear`/`Dense`, common activations (ReLU, etc.) ✅
-- Optimizers: SGD ✅ / Adam (remaining)
-- Synthetic-data integration tests where training reduces loss over time ✅ (78 tests passing)
+- Activation functions: ReLU, tanh, sigmoid (forward + backward) ✅
+- Basic neural network layers: `Linear`/`Dense`, composable MLPs ✅
+- Optimizers: SGD ✅ / Adam ✅
+- Synthetic-data integration tests where training reduces loss over time ✅ (106 tests passing)
 - JSON-based model serialization (`.mbt`-style serialize/deserialize) ✅
 
 ### Phase 2: Model Formats and I/O
 
 Goal: Make MbTorch interoperable with existing model ecosystems and support its own native format.
 
-- **ONNX import (subset)**  
-  - Support for a targeted subset of operators needed for small MLPs, CNNs, and lightweight Transformers  
-  - Verification tests comparing MbTorch outputs with reference runtimes  
-- **safetensors import**  
-  - Parse header (JSON) and binary tensor buffer, supporting common dtypes and shapes  
-  - Combine ONNX graphs with safetensors weights to reconstruct pretrained models  
-- **MbTorch-native format (`.mbt` JSON)**  
-  - `serialize_model` / `deserialize_model` for JSON-based model I/O ✅
-  - Binary `.mbt` format (metadata + packed tensor buffer) — planned
-- User-facing I/O APIs:
-  - `Model.from_onnx(...)` / `Model.from_safetensors(...)`
-  - Binary `save_mbt(...)` / `load_mbt(...)`  
+- **ONNX import (Phase 1 subset)** ✅
+  - Hand-written protobuf parser for ONNX ModelProto/GraphProto/TensorProto
+  - Supported ops: Gemm, MatMul, Add, Relu (float32, 1D/2D tensors, sequential MLPs)
+  - `parse_onnx` / `load_onnx_model` APIs
+- **safetensors import (Phase 1 subset)** ✅
+  - Binary parser: JSON header + raw float32 tensor data
+  - `parse_safetensors_header` / `load_safetensors` APIs
+- **E2E import path** ✅
+  - `load_model_from_onnx_and_safetensors`: ONNX structure + safetensors weights → Linear layers
+  - PyTorch → torch.onnx.export + safetensors.save → MbTorch import → inference verified
+- **MbTorch-native format (`.mbt` JSON)** ✅
+  - `serialize_model` / `deserialize_model` for JSON-based model I/O
+- Binary `.mbt` format (metadata + packed tensor buffer) — planned
+- ONNX export (MbTorch → ONNX) — planned
+- Additional ONNX ops (Conv, BatchNorm, Attention) — planned
+- float16 / int8 dtype support — planned
 
 ### Phase 3: Browser, Edge & Fine-Tuning UX
 
 Goal: Deliver the core user experience: local, privacy-preserving fine-tuning and inference on browsers and edge devices.
 
-- **WASM/Edge Runtime**  
-  - Build and optimize a MbTorch runtime path targeting WebAssembly for browser and edge runtimes  
-  - Provide a minimal browser demo (e.g. simple classifier or MLP)  
-- **Lightweight Fine-Tuning**  
-  - Support parameter-efficient tuning (e.g. LoRA/adapters) on top of imported models  
-  - Partial training (freeze base model, train only additional parameters)  
-- **Offline Optimization Flow (MVP)**  
-  - Download a pretrained model (ONNX + safetensors) once  
-  - Run short on-device fine-tuning on user data  
-  - Save the personalized model in `.mbt` format to local storage (browser or file system)  
-- **Docs and Examples**  
-  - “Build a tiny MLP in MoonBit” tutorial  
-  - “Import a PyTorch model via ONNX into MbTorch” guide  
-  - Browser demo for local personalization and inference  
+- **WASM/Edge Runtime**
+  - Build and optimize a MbTorch runtime path targeting WebAssembly for browser and edge runtimes
+  - Browser demo: `web_mlp` with 6-variant comparison (SGD/Adam × ReLU/tanh/sigmoid) ✅
+- **Lightweight Fine-Tuning**
+  - Support parameter-efficient tuning (e.g. LoRA/adapters) on top of imported models
+  - Partial training (freeze base model, train only additional parameters)
+- **Offline Optimization Flow (MVP)**
+  - Download a pretrained model (ONNX + safetensors) once
+  - Run short on-device fine-tuning on user data
+  - Save the personalized model in `.mbt` format to local storage (browser or file system)
+- **Docs and Examples**
+  - “Build a tiny MLP in MoonBit” tutorial
+  - “Import a PyTorch model via ONNX into MbTorch” guide
+  - Browser demo for local personalization and inference
 
 ### Future Directions
 

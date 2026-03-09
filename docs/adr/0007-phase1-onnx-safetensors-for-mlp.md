@@ -1,6 +1,6 @@
 # 0007: Phase 1 — ONNX and safetensors support for small MLPs
 
-* Status: proposed
+* Status: accepted
 * Date: 2026-03-09
 * Deciders: @c-tomioka, Claude Code
 
