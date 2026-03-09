@@ -101,7 +101,7 @@ More examples:
 
 ### Browser Demo
 
-The same MoonBit training code runs in the browser via WebAssembly with zero source-level changes.
+MbTorch runs natively in the browser via WebAssembly — the same MoonBit training code compiles to wasm-gc and executes with zero source changes. The [`web_mlp`](examples/web_mlp/) demo trains 6 MLP variants in-browser and visualizes their loss curves in an interactive chart, letting you compare optimizers and activations at a glance.
 
 ```bash
 moon build --target wasm-gc

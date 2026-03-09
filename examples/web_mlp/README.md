@@ -14,16 +14,12 @@ Trains a Linear(2,4) → activation → Linear(4,1) model on synthetic data
 | Adam (lr=0.05) | ReLU, tanh, sigmoid |
 
 Each combination trains for 100 steps with identical initial weights
-(same random seeds for fair comparison). The page displays a summary table
-of final loss values alongside the full training log.
+(same random seeds for fair comparison). The page displays:
 
-## Why this demo
-
-The initial version of this demo ran a single SGD + ReLU training loop to
-prove that **MoonBit + WASM can run ML in the browser**. This expanded
-version goes further: it compares 6 optimizer × activation combinations
-side-by-side so you can **see how these choices affect convergence** — all
-computed inside the browser with no server-side processing.
+1. An **interactive loss chart** with 6 color-coded curves (log scale)
+2. **Checkboxes** to show/hide individual curves
+3. A **results summary table** with final loss values
+4. A collapsible **training log** with step-by-step output
 
 ## Prerequisites
 
@@ -33,45 +29,28 @@ computed inside the browser with no server-side processing.
   - Firefox 120+
   - Safari 18.2+
 
-## Build
+## Build & Run
 
 From the project root:
 
 ```bash
 moon build --target wasm-gc
-```
-
-This generates `_build/wasm-gc/debug/build/examples/web_mlp/web_mlp.wasm`.
-
-## Run
-
-Start a local HTTP server from the **project root** (not from this directory):
-
-```bash
 python3 -m http.server 8080
 ```
 
-Then open: http://localhost:8080/examples/web_mlp/index.html
+Open: http://localhost:8080/examples/web_mlp/index.html
 
-## What you will see
+## What you'll see
 
-The page runs all 6 combinations sequentially. For each one, training
-progress is shown both on the page and in the browser console:
+1. Open the page and click **"Train 6 models in your browser"**.
+2. The browser trains 6 MLP variants (SGD/Adam × ReLU/tanh/sigmoid) from scratch via WebAssembly — no server needed.
+3. Once training finishes, a **loss chart** with 6 color-coded curves appears.
+4. Use **checkboxes** to show/hide individual curves.
+5. A **results table** summarizes the final loss for each combination.
+6. Click **Training Log** to view the full step-by-step output.
+7. Click **"Train again"** to re-run all 6 training runs from scratch.
 
-```
-=== SGD + ReLU ===
-step 0: loss = Tensor(shape=[], data=[137.27...])
-step 10: loss = Tensor(shape=[], data=[111.71...])
-...
-Training complete.
-=== SGD + tanh ===
-...
-=== Adam + sigmoid ===
-...
-Training complete.
-```
-
-A summary table at the top shows the final loss for each combination:
+### Example results
 
 | Combination | Final Loss |
 |-------------|-----------|
@@ -94,6 +73,8 @@ These patterns illustrate why activation and optimizer choice matters — and wh
 ## How it works
 
 1. `moon build --target wasm-gc` compiles MoonBit to a WebAssembly module
-2. `index.html` loads the `.wasm` file and calls the exported `_start` function
-3. MoonBit's `println` outputs characters via `spectest.print_char`, which the JS glue buffers and renders on the page
-4. The JS parses each output line to extract labels and loss values, then builds a results summary table
+2. `index.html` pre-compiles the `.wasm` module on page load; clicking the train button instantiates it and calls `_start`
+3. MoonBit's `println` outputs characters via `spectest.print_char`, which the JS glue buffers and renders
+4. The MoonBit code emits `DATA:label,step,loss` tagged lines on every step for chart data
+5. JS parses these lines to build Chart.js datasets, and renders the interactive loss chart with checkbox controls
+6. Human-readable `step N: loss = ...` lines are shown in the collapsible training log

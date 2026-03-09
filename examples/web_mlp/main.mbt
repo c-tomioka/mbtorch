@@ -27,8 +27,10 @@ fn main {
     let pred = l2.forward(h)
     let diff = pred.sub(target)
     let loss = diff.mul(diff).sum()
+    let loss_val = loss.data().get([])
+    println("DATA:SGD + ReLU,\{step},\{loss_val}")
     if step % 10 == 0 {
-      println("step \{step}: loss = \{loss.data()}")
+      println("step \{step}: loss = \{loss_val}")
     }
     loss.backward()
     opt.step()
@@ -50,8 +52,10 @@ fn main {
     let pred = l2.forward(h)
     let diff = pred.sub(target)
     let loss = diff.mul(diff).sum()
+    let loss_val = loss.data().get([])
+    println("DATA:SGD + tanh,\{step},\{loss_val}")
     if step % 10 == 0 {
-      println("step \{step}: loss = \{loss.data()}")
+      println("step \{step}: loss = \{loss_val}")
     }
     loss.backward()
     opt.step()
@@ -73,8 +77,10 @@ fn main {
     let pred = l2.forward(h)
     let diff = pred.sub(target)
     let loss = diff.mul(diff).sum()
+    let loss_val = loss.data().get([])
+    println("DATA:SGD + sigmoid,\{step},\{loss_val}")
     if step % 10 == 0 {
-      println("step \{step}: loss = \{loss.data()}")
+      println("step \{step}: loss = \{loss_val}")
     }
     loss.backward()
     opt.step()
@@ -96,8 +102,10 @@ fn main {
     let pred = l2.forward(h)
     let diff = pred.sub(target)
     let loss = diff.mul(diff).sum()
+    let loss_val = loss.data().get([])
+    println("DATA:Adam + ReLU,\{step},\{loss_val}")
     if step % 10 == 0 {
-      println("step \{step}: loss = \{loss.data()}")
+      println("step \{step}: loss = \{loss_val}")
     }
     loss.backward()
     opt.step()
@@ -119,8 +127,10 @@ fn main {
     let pred = l2.forward(h)
     let diff = pred.sub(target)
     let loss = diff.mul(diff).sum()
+    let loss_val = loss.data().get([])
+    println("DATA:Adam + tanh,\{step},\{loss_val}")
     if step % 10 == 0 {
-      println("step \{step}: loss = \{loss.data()}")
+      println("step \{step}: loss = \{loss_val}")
     }
     loss.backward()
     opt.step()
@@ -142,8 +152,10 @@ fn main {
     let pred = l2.forward(h)
     let diff = pred.sub(target)
     let loss = diff.mul(diff).sum()
+    let loss_val = loss.data().get([])
+    println("DATA:Adam + sigmoid,\{step},\{loss_val}")
     if step % 10 == 0 {
-      println("step \{step}: loss = \{loss.data()}")
+      println("step \{step}: loss = \{loss_val}")
     }
     loss.backward()
     opt.step()

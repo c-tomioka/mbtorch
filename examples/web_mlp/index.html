@@ -5,22 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MbTorch Web MLP Demo</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #333; }
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; color: #333; }
     h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
     .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
     .info { background: #f0f4f8; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; }
-    #status { margin-bottom: 0.5rem; font-weight: bold; }
+    .train-desc { font-size: 0.9rem; color: #555; margin-bottom: 0.75rem; line-height: 1.5; }
+    #train-btn {
+      padding: 0.6rem 1.5rem; font-size: 1rem; cursor: pointer;
+      background: #2aa198; color: white; border: none; border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+    #train-btn:disabled { background: #aaa; cursor: not-allowed; }
+    #status { margin-bottom: 1rem; font-weight: bold; }
     #status.loading { color: #b58900; }
     #status.done { color: #2aa198; }
     #status.error { color: #dc322f; }
-    #results { margin-bottom: 1rem; display: none; }
+    #controls { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; margin-bottom: 0.75rem; }
+    #controls label { font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 0.3rem; }
+    .color-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+    #chart-container { margin-bottom: 1.5rem; }
+    #loss-chart { width: 100%; max-height: 380px; }
+    #results { margin-bottom: 1rem; }
     #results h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
     #results-table { width: 100%; border-collapse: collapse; }
     #results-table th, #results-table td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; font-size: 0.85rem; }
     #results-table th { background: #f0f4f8; }
     #results-table code { font-size: 0.8rem; }
+    details { margin-bottom: 1rem; }
+    details summary { cursor: pointer; font-weight: bold; font-size: 0.95rem; margin-bottom: 0.5rem; }
     #output { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 4px;
-              min-height: 200px; max-height: 400px; white-space: pre-wrap; overflow-y: auto; font-family: monospace; font-size: 0.9rem; }
+              min-height: 100px; max-height: 300px; white-space: pre-wrap; overflow-y: auto; font-family: monospace; font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -31,100 +45,63 @@
     Optimizers: SGD (lr=0.001) and Adam (lr=0.05). Activations: ReLU, tanh, sigmoid.<br>
     Each combination trains for 100 steps with identical initial weights.
   </div>
-  <div id="status" class="loading">Loading WASM module...</div>
-  <div id="results">
+
+  <p class="train-desc">
+    This demo trains all 6 models from scratch in your browser.<br>
+    Click the button to start training; once it finishes, the loss curves and results below are updated.
+  </p>
+  <button id="train-btn" disabled>Train 6 models in your browser</button>
+  <div id="status"></div>
+
+  <div id="controls" style="display:none;"></div>
+  <div id="chart-container" style="display:none;">
+    <canvas id="loss-chart"></canvas>
+  </div>
+
+  <div id="results" style="display:none;">
     <h2>Results Summary</h2>
     <table id="results-table">
       <thead><tr><th>Combination</th><th>Final Loss</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
-  <pre id="output"></pre>
 
+  <details>
+    <summary>Training Log</summary>
+    <pre id="output"></pre>
+  </details>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script type="module">
     const output = document.getElementById("output");
     const status = document.getElementById("status");
-
+    const trainBtn = document.getElementById("train-btn");
     const wasmPath = "../../_build/wasm-gc/debug/build/examples/web_mlp/web_mlp.wasm";
 
-    const results = [];
-    let currentLabel = null;
-    let currentFinalLoss = null;
+    const SERIES_CONFIG = {
+      "SGD + ReLU":    { color: "#e74c3c" },
+      "SGD + tanh":    { color: "#3498db" },
+      "SGD + sigmoid": { color: "#27ae60" },
+      "Adam + ReLU":   { color: "#e67e22" },
+      "Adam + tanh":   { color: "#9b59b6" },
+      "Adam + sigmoid":{ color: "#1abc9c" },
+    };
 
+    let chart = null;
+    let wasmModule = null;
+
+    // Compile WASM module on page load (once)
     try {
-      let buffer = [];
-      const importObject = {
-        spectest: {
-          print_char(ch) {
-            if (ch === 10) {
-              const line = String.fromCharCode(...buffer);
-              console.log(line);
-              output.textContent += line + "\n";
-              buffer = [];
-
-              const labelMatch = line.match(/^=== (.+) ===$/);
-              if (labelMatch) {
-                if (currentLabel && currentFinalLoss) {
-                  results.push({ label: currentLabel, loss: currentFinalLoss });
-                }
-                currentLabel = labelMatch[1];
-                currentFinalLoss = null;
-              }
-
-              const lossMatch = line.match(/^step \d+: loss = (.+)$/);
-              if (lossMatch) {
-                currentFinalLoss = lossMatch[1];
-              }
-
-              if (line === "Training complete." && currentLabel) {
-                results.push({ label: currentLabel, loss: currentFinalLoss || "N/A" });
-                currentLabel = null;
-                currentFinalLoss = null;
-              }
-            } else if (ch !== 13) {
-              buffer.push(ch);
-            }
-          },
-        },
-      };
-
-      status.textContent = "Training in progress...";
-
+      status.textContent = "Loading WASM module...";
+      status.className = "loading";
       const response = await fetch(wasmPath);
       if (!response.ok) {
         throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText}`);
       }
-
-      const module = await WebAssembly.compileStreaming(response);
-      const instance = await WebAssembly.instantiate(module, importObject);
-
-      instance.exports._start();
-
-      if (buffer.length > 0) {
-        const line = String.fromCharCode(...buffer);
-        console.log(line);
-        output.textContent += line + "\n";
-      }
-
-      if (results.length > 0) {
-        const tbody = document.querySelector("#results-table tbody");
-        for (const r of results) {
-          const tr = document.createElement("tr");
-          const tdLabel = document.createElement("td");
-          tdLabel.textContent = r.label;
-          const tdLoss = document.createElement("td");
-          const code = document.createElement("code");
-          code.textContent = r.loss;
-          tdLoss.appendChild(code);
-          tr.appendChild(tdLabel);
-          tr.appendChild(tdLoss);
-          tbody.appendChild(tr);
-        }
-        document.getElementById("results").style.display = "block";
-      }
-
-      status.textContent = "Done!";
-      status.className = "done";
+      wasmModule = await WebAssembly.compileStreaming(response);
+      status.textContent = "Ready.";
+      status.className = "";
+      trainBtn.disabled = false;
     } catch (e) {
       status.textContent = "Error: " + e.message;
       status.className = "error";
@@ -136,6 +113,200 @@
       output.textContent += "  3. Open: http://localhost:8080/examples/web_mlp/index.html\n";
       output.textContent += "  4. Use Chrome 119+, Firefox 120+, or Safari 18.2+\n";
     }
+
+    trainBtn.addEventListener("click", async () => {
+      if (!wasmModule) return;
+
+      // --- UI: training started ---
+      trainBtn.disabled = true;
+      trainBtn.textContent = "Training...";
+      status.textContent = "Training 6 combinations from scratch (100 steps each)...";
+      status.className = "loading";
+
+      // --- Reset state ---
+      const seriesData = {};
+      const results = [];
+      let currentLabel = null;
+      let currentFinalLoss = null;
+      output.textContent = "";
+
+      // Clear previous chart/controls/results
+      if (chart) {
+        chart.destroy();
+        chart = null;
+      }
+      document.getElementById("controls").innerHTML = "";
+      document.getElementById("controls").style.display = "none";
+      document.getElementById("chart-container").style.display = "none";
+      document.querySelector("#results-table tbody").innerHTML = "";
+      document.getElementById("results").style.display = "none";
+
+      try {
+        let buffer = [];
+        const importObject = {
+          spectest: {
+            print_char(ch) {
+              if (ch === 10) {
+                const line = String.fromCharCode(...buffer);
+                console.log(line);
+                output.textContent += line + "\n";
+                buffer = [];
+
+                // Parse DATA: lines for chart
+                const dataMatch = line.match(/^DATA:(.+),(\d+),(.+)$/);
+                if (dataMatch) {
+                  const label = dataMatch[1];
+                  const step = parseInt(dataMatch[2]);
+                  const loss = parseFloat(dataMatch[3]);
+                  if (!seriesData[label]) seriesData[label] = [];
+                  seriesData[label].push({ x: step, y: loss });
+                  return;
+                }
+
+                // Parse label and loss for results table
+                const labelMatch = line.match(/^=== (.+) ===$/);
+                if (labelMatch) {
+                  currentLabel = labelMatch[1];
+                  currentFinalLoss = null;
+                }
+
+                const lossMatch = line.match(/^step \d+: loss = (.+)$/);
+                if (lossMatch) {
+                  currentFinalLoss = lossMatch[1];
+                }
+
+                if (line === "Training complete." && currentLabel) {
+                  results.push({ label: currentLabel, loss: currentFinalLoss || "N/A" });
+                  currentLabel = null;
+                  currentFinalLoss = null;
+                }
+              } else if (ch !== 13) {
+                buffer.push(ch);
+              }
+            },
+          },
+        };
+
+        // Instantiate fresh and run training
+        const instance = await WebAssembly.instantiate(wasmModule, importObject);
+        instance.exports._start();
+
+        // Flush remaining buffer
+        if (buffer.length > 0) {
+          const line = String.fromCharCode(...buffer);
+          console.log(line);
+          output.textContent += line + "\n";
+        }
+
+        // --- Build Chart ---
+        const seriesLabels = Object.keys(seriesData);
+        if (seriesLabels.length > 0 && typeof Chart !== "undefined") {
+          const datasets = seriesLabels.map(label => {
+            const cfg = SERIES_CONFIG[label] || { color: "#999" };
+            return {
+              label,
+              data: seriesData[label],
+              borderColor: cfg.color,
+              backgroundColor: cfg.color + "20",
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.1,
+            };
+          });
+
+          const ctx = document.getElementById("loss-chart").getContext("2d");
+          chart = new Chart(ctx, {
+            type: "line",
+            data: { datasets },
+            options: {
+              responsive: true,
+              interaction: { mode: "index", intersect: false },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(4)}`,
+                  },
+                },
+              },
+              scales: {
+                x: {
+                  type: "linear",
+                  title: { display: true, text: "Step" },
+                  min: 0,
+                  max: 99,
+                },
+                y: {
+                  type: "logarithmic",
+                  title: { display: true, text: "Loss (log scale)" },
+                  min: 0.1,
+                },
+              },
+            },
+          });
+
+          // --- Build checkboxes ---
+          const controlsEl = document.getElementById("controls");
+          seriesLabels.forEach((label, idx) => {
+            const cfg = SERIES_CONFIG[label] || { color: "#999" };
+            const labelEl = document.createElement("label");
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.checked = true;
+            cb.addEventListener("change", () => {
+              chart.data.datasets[idx].hidden = !cb.checked;
+              chart.update();
+            });
+            const dot = document.createElement("span");
+            dot.className = "color-dot";
+            dot.style.backgroundColor = cfg.color;
+            labelEl.appendChild(cb);
+            labelEl.appendChild(dot);
+            labelEl.appendChild(document.createTextNode(" " + label));
+            controlsEl.appendChild(labelEl);
+          });
+          controlsEl.style.display = "flex";
+          document.getElementById("chart-container").style.display = "block";
+        }
+
+        // --- Build results table ---
+        if (results.length > 0) {
+          const tbody = document.querySelector("#results-table tbody");
+          for (const r of results) {
+            const cfg = SERIES_CONFIG[r.label] || { color: "#999" };
+            const tr = document.createElement("tr");
+            const tdLabel = document.createElement("td");
+            const dot = document.createElement("span");
+            dot.className = "color-dot";
+            dot.style.backgroundColor = cfg.color;
+            dot.style.marginRight = "0.4rem";
+            tdLabel.appendChild(dot);
+            tdLabel.appendChild(document.createTextNode(r.label));
+            const tdLoss = document.createElement("td");
+            const code = document.createElement("code");
+            code.textContent = r.loss;
+            tdLoss.appendChild(code);
+            tr.appendChild(tdLabel);
+            tr.appendChild(tdLoss);
+            tbody.appendChild(tr);
+          }
+          document.getElementById("results").style.display = "block";
+        }
+
+        // --- UI: training complete ---
+        status.textContent = "Done! Trained 6 models from scratch in your browser.";
+        status.className = "done";
+        trainBtn.textContent = "Train again";
+        trainBtn.disabled = false;
+      } catch (e) {
+        status.textContent = "Error: " + e.message;
+        status.className = "error";
+        console.error(e);
+        output.textContent += "\n[Error] " + e.message + "\n";
+        trainBtn.textContent = "Train again";
+        trainBtn.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
