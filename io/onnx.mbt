@@ -150,14 +150,26 @@ fn parse_tensor_proto(
       _ => pos = skip_field(data, pos, wire_type)
     }
   }
-  // Validate dtype
-  guard dtype == 1 else {
+  // Validate dtype: 1=FLOAT, 10=FLOAT16
+  guard dtype == 1 || dtype == 10 else {
     raise UnsupportedDtype(
-      "tensor " + name + ": expected FLOAT (1), got " + dtype.to_string(),
+      "tensor " + name + ": expected FLOAT (1) or FLOAT16 (10), got " + dtype.to_string(),
     )
   }
   // Get float values from either float_data or raw_data
-  let values = if float_data.length() > 0 {
+  let values = if dtype == 10 {
+    // FLOAT16: always in raw_data (2 bytes per element)
+    if raw_data_offset >= 0 {
+      let count = raw_data_len / 2
+      let result = Array::make(count, 0.0)
+      for i = 0; i < count; i = i + 1 {
+        result[i] = float16_le_to_double(data, raw_data_offset + i * 2)
+      }
+      result
+    } else {
+      []
+    }
+  } else if float_data.length() > 0 {
     float_data
   } else if raw_data_offset >= 0 {
     parse_packed_float32(data, raw_data_offset, raw_data_len)
@@ -477,12 +489,12 @@ pub fn load_onnx_model(
           None =>
             raise InvalidModel("weight initializer not found: " + weight_name)
         }
-        // Validate dtype
-        guard weight_tensor.dtype == 1 else {
+        // Validate dtype: 1=FLOAT, 10=FLOAT16
+        guard weight_tensor.dtype == 1 || weight_tensor.dtype == 10 else {
           raise UnsupportedDtype(
             "tensor " +
             weight_name +
-            ": expected FLOAT (1), got " +
+            ": expected FLOAT (1) or FLOAT16 (10), got " +
             weight_tensor.dtype.to_string(),
           )
         }
@@ -525,11 +537,11 @@ pub fn load_onnx_model(
           None =>
             raise InvalidModel("weight initializer not found: " + weight_name)
         }
-        guard weight_tensor.dtype == 1 else {
+        guard weight_tensor.dtype == 1 || weight_tensor.dtype == 10 else {
           raise UnsupportedDtype(
             "tensor " +
             weight_name +
-            ": expected FLOAT (1), got " +
+            ": expected FLOAT (1) or FLOAT16 (10), got " +
             weight_tensor.dtype.to_string(),
           )
         }

@@ -8,7 +8,7 @@ pub fn Tensor::add(self : Tensor, other : Tensor) -> Tensor {
   for i = 0; i < n; i = i + 1 {
     result[i] = self.data_[i] + other.data_[i]
   }
-  { data_: result, shape_: self.shape_.copy() }
+  { data_: result, shape_: self.shape_.copy(), dtype_: Float32, quant_params_: None }
 }
 
 ///|
@@ -21,7 +21,7 @@ pub fn Tensor::mul(self : Tensor, other : Tensor) -> Tensor {
   for i = 0; i < n; i = i + 1 {
     result[i] = self.data_[i] * other.data_[i]
   }
-  { data_: result, shape_: self.shape_.copy() }
+  { data_: result, shape_: self.shape_.copy(), dtype_: Float32, quant_params_: None }
 }
 
 ///|
@@ -44,7 +44,7 @@ pub fn Tensor::sub(self : Tensor, other : Tensor) -> Tensor {
   for i = 0; i < n; i = i + 1 {
     result[i] = self.data_[i] - other.data_[i]
   }
-  { data_: result, shape_: self.shape_.copy() }
+  { data_: result, shape_: self.shape_.copy(), dtype_: Float32, quant_params_: None }
 }
 
 ///|
@@ -54,7 +54,7 @@ pub fn Tensor::scale(self : Tensor, factor : Double) -> Tensor {
   for i = 0; i < n; i = i + 1 {
     result[i] = self.data_[i] * factor
   }
-  { data_: result, shape_: self.shape_.copy() }
+  { data_: result, shape_: self.shape_.copy(), dtype_: Float32, quant_params_: None }
 }
 
 ///|
@@ -63,7 +63,7 @@ pub fn Tensor::sum(self : Tensor) -> Tensor {
   for i = 0; i < self.data_.length(); i = i + 1 {
     total = total + self.data_[i]
   }
-  { data_: [total], shape_: [] }
+  { data_: [total], shape_: [], dtype_: Float32, quant_params_: None }
 }
 
 ///|
@@ -77,7 +77,7 @@ pub fn Tensor::div(self : Tensor, other : Tensor) -> Tensor {
   for i = 0; i < n; i = i + 1 {
     result[i] = self.data_[i] / other.data_[i]
   }
-  { data_: result, shape_: self.shape_.copy() }
+  { data_: result, shape_: self.shape_.copy(), dtype_: Float32, quant_params_: None }
 }
 
 ///|
@@ -88,5 +88,5 @@ pub fn Tensor::sqrt(self : Tensor) -> Tensor {
   for i = 0; i < n; i = i + 1 {
     result[i] = self.data_[i].sqrt()
   }
-  { data_: result, shape_: self.shape_.copy() }
+  { data_: result, shape_: self.shape_.copy(), dtype_: Float32, quant_params_: None }
 }

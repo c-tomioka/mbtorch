@@ -170,6 +170,31 @@ test "load_safetensors 2d float32 tensor" {
 }
 
 ///|
+/// D-T16: Load safetensors with F16 dtype
+test "safetensors f16 load" {
+  // Build a safetensors blob with F16 data (2 bytes per element)
+  // Values: [1.0, -0.5] as float16 LE
+  let f16_data : Array[Byte] = []
+  // 1.0 in f16 = 0x3C00 -> LE: [0x00, 0x3C]
+  f16_data.push(b'\x00')
+  f16_data.push(b'\x3C')
+  // -0.5 in f16 = 0xB800 -> LE: [0x00, 0xB8]
+  f16_data.push(b'\x00')
+  f16_data.push(b'\xB8')
+  let header_json =
+    #|{"x":{"dtype":"F16","shape":[2],"data_offsets":[0,4]}}
+  let data = build_safetensors_bytes(header_json, f16_data)
+  let tensors = @io.load_safetensors(data)
+  assert_eq(tensors.length(), 1)
+  assert_eq(tensors[0].0, "x")
+  let arr = tensors[0].1.to_array()
+  assert_eq(arr.length(), 2)
+  let eps = 1.0e-3
+  assert_true((arr[0] - 1.0).abs() < eps)
+  assert_true((arr[1] - -0.5).abs() < eps)
+}
+
+///|
 /// S8: Reject unsupported dtype (F64)
 test "load_safetensors rejects unsupported dtype" {
   // Build a safetensors with F64 dtype manually

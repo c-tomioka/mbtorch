@@ -127,6 +127,35 @@ fn build_tensor_proto(
 }
 
 ///|
+/// Build a TensorProto with dtype=10 (FLOAT16) using raw_data (2 bytes per value).
+fn build_tensor_proto_f16(
+  name : String,
+  shape : Array[Int],
+  values : Array[Double],
+) -> Array[Byte] {
+  let content : Array[Byte] = []
+  // Field 1: dims (packed int64 varints)
+  let dims_content : Array[Byte] = []
+  for i = 0; i < shape.length(); i = i + 1 {
+    append_all(dims_content, encode_varint(shape[i].to_uint64()))
+  }
+  append_all(content, encode_len_delimited(1, dims_content))
+  // Field 2: data_type = 10 (FLOAT16)
+  append_all(content, encode_varint_field(2, 10UL))
+  // Field 9: raw_data (packed float16 LE, 2 bytes per value)
+  let raw_content : Array[Byte] = []
+  for i = 0; i < values.length(); i = i + 1 {
+    let bytes = double_to_float16_le(values[i])
+    raw_content.push(bytes[0])
+    raw_content.push(bytes[1])
+  }
+  append_all(content, encode_len_delimited(9, raw_content))
+  // Field 8: name
+  append_all(content, encode_string_field(8, name))
+  content
+}
+
+///|
 /// Build a TensorProto with raw_data instead of float_data.
 fn build_tensor_proto_raw(
   name : String,

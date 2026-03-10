@@ -257,6 +257,15 @@ fn export_batchnorm2d(
 ///|
 /// Encode an OnnxGraph to protobuf bytes (GraphProto).
 fn encode_onnx_graph(graph : OnnxGraph) -> Array[Byte] {
+  encode_onnx_graph_with_dtype(graph, "F32")
+}
+
+///|
+/// Encode an OnnxGraph to protobuf bytes with specified dtype for initializers.
+fn encode_onnx_graph_with_dtype(
+  graph : OnnxGraph,
+  dtype : String,
+) -> Array[Byte] {
   // Encode each node
   let node_bytes : Array[Array[Byte]] = []
   for i = 0; i < graph.nodes.length(); i = i + 1 {
@@ -280,7 +289,12 @@ fn encode_onnx_graph(graph : OnnxGraph) -> Array[Byte] {
   let init_bytes : Array[Array[Byte]] = []
   for i = 0; i < graph.initializers.length(); i = i + 1 {
     let init = graph.initializers[i]
-    init_bytes.push(build_tensor_proto(init.name, init.shape, init.data))
+    match dtype {
+      "F16" =>
+        init_bytes.push(build_tensor_proto_f16(init.name, init.shape, init.data))
+      _ =>
+        init_bytes.push(build_tensor_proto(init.name, init.shape, init.data))
+    }
   }
   build_graph_proto(
     node_bytes,
@@ -288,4 +302,17 @@ fn encode_onnx_graph(graph : OnnxGraph) -> Array[Byte] {
     graph.input_names,
     graph.output_names,
   )
+}
+
+///|
+/// Export MbTorch layers to ONNX protobuf bytes with specified dtype for weights.
+/// dtype: "F32" (default) or "F16" (half-precision weights).
+pub fn export_onnx_with_dtype(
+  layers : Array[@nn.Layer],
+  input_shape : Array[Int],
+  dtype : String,
+) -> Bytes raise OnnxError {
+  let graph = layers_to_onnx_graph(layers, input_shape)
+  let graph_bytes = encode_onnx_graph_with_dtype(graph, dtype)
+  build_model_proto_with_opset(graph_bytes, 13)
 }

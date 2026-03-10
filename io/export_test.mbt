@@ -227,3 +227,89 @@ test "export produces valid onnx bytes" {
   let graph = @io.parse_onnx(onnx_bytes)
   assert_true(graph.nodes.length() > 0)
 }
+
+///|
+/// D-T17: Export f16 roundtrip — export with F16 dtype, re-import, compare
+test "export f16 roundtrip" {
+  let weight = @tensor.Tensor::from_array_with_shape([2.0, 3.0], [2, 1])
+  let bias = @tensor.Tensor::from_array_with_shape([1.0], [1])
+  let linear = @nn.Linear::from_tensors(weight, bias)
+  let layers : Array[@nn.Layer] = [@nn.Layer::Linear(linear)]
+  // Export as F16
+  let onnx_bytes = @io.export_onnx_with_dtype(layers, [1, 2], "F16")
+  // Parse back
+  let graph = @io.parse_onnx(onnx_bytes)
+  assert_eq(graph.nodes.length(), 1)
+  assert_eq(graph.nodes[0].op_type, "Gemm")
+  // Initializers should have dtype=10 (FLOAT16)
+  assert_eq(graph.initializers[0].dtype, 10)
+  // Weight values should be close to originals (f16 precision)
+  // Linear weight [2,1] transposed to [1,2] = [2.0, 3.0]
+  let w = graph.initializers[0].data
+  assert_eq(w.length(), 2)
+  let eps = 0.01
+  assert_true((w[0] - 2.0).abs() < eps)
+  assert_true((w[1] - 3.0).abs() < eps)
+}
+
+///|
+/// D-T18: MLP f16 inference parity — f32 vs f16 forward results within tolerance
+test "mlp f16 inference parity" {
+  let w1 = @tensor.Tensor::from_array_with_shape(
+    [1.0, 0.0, -1.0, 0.0, 1.0, 0.0],
+    [2, 3],
+  )
+  let b1 = @tensor.Tensor::from_array_with_shape([0.0, 0.0, 0.0], [3])
+  let w2 = @tensor.Tensor::from_array_with_shape([1.0, 1.0, 1.0], [3, 1])
+  let b2 = @tensor.Tensor::from_array_with_shape([0.5], [1])
+  let layers : Array[@nn.Layer] = [
+    @nn.Layer::Linear(@nn.Linear::from_tensors(w1, b1)),
+    @nn.Layer::Relu,
+    @nn.Layer::Linear(@nn.Linear::from_tensors(w2, b2)),
+  ]
+  // Original f32 forward
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[1.0, 1.0]]),
+  )
+  let mut h : @autograd.Variable = x
+  for i = 0; i < layers.length(); i = i + 1 {
+    h = layers[i].forward(h)
+  }
+  let expected = h.data().get([0, 0])
+  // Export as F16, reimport, forward
+  let onnx_bytes = @io.export_onnx_with_dtype(layers, [1, 2], "F16")
+  let imported = @io.load_onnx_model(onnx_bytes)
+  let x2 = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[1.0, 1.0]]),
+  )
+  let h1 = imported[0].1.forward(x2)
+  let h1_relu = h1.relu()
+  let y = imported[1].1.forward(h1_relu)
+  let eps = 1.0e-2
+  assert_true((y.data().get([0, 0]) - expected).abs() < eps)
+}
+
+///|
+/// D-T19: Linear int8 inference parity — binary .mbt int8 roundtrip forward
+test "linear int8 inference parity" {
+  let weight = @tensor.Tensor::from_array_with_shape(
+    [0.5, -0.3, 0.8, -0.1],
+    [2, 2],
+  )
+  let bias = @tensor.Tensor::from_array_with_shape([0.1, -0.2], [2])
+  let linear = @nn.Linear::from_tensors(weight, bias)
+  // Original forward
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[1.0, 2.0]]),
+  )
+  let original = linear.forward(x)
+  // Serialize as int8 binary, deserialize, forward
+  let data = @io.serialize_model_to_binary_with_dtype([("fc", linear)], "I8")
+  let restored = @io.deserialize_model_from_binary(data)
+  let y = restored[0].1.forward(x)
+  // int8 has significant quantization error, but should be in the right ballpark
+  for j = 0; j < 2; j = j + 1 {
+    let diff = (y.data().get([0, j]) - original.data().get([0, j])).abs()
+    assert_true(diff < 0.5) // generous tolerance for int8
+  }
+}

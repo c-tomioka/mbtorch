@@ -70,9 +70,13 @@ fn read_tensor_data(
   meta : SafetensorsMeta,
   header_size : Int,
 ) -> @tensor.Tensor raise SafetensorsError {
-  guard meta.dtype == "F32" else { raise UnsupportedDtype(meta.dtype) }
   let byte_count = meta.data_end - meta.data_start
-  let num_elements = byte_count / 4
+  let element_size = match meta.dtype {
+    "F32" => 4
+    "F16" => 2
+    _ => raise UnsupportedDtype(meta.dtype)
+  }
+  let num_elements = byte_count / element_size
   // Verify shape matches element count
   let mut expected = 1
   for i = 0; i < meta.shape.length(); i = i + 1 {
@@ -89,8 +93,16 @@ fn read_tensor_data(
   }
   let values = Array::make(num_elements, 0.0)
   let base_offset = 8 + header_size + meta.data_start
-  for i = 0; i < num_elements; i = i + 1 {
-    values[i] = float32_le_to_double(data, base_offset + i * 4)
+  match meta.dtype {
+    "F32" =>
+      for i = 0; i < num_elements; i = i + 1 {
+        values[i] = float32_le_to_double(data, base_offset + i * 4)
+      }
+    "F16" =>
+      for i = 0; i < num_elements; i = i + 1 {
+        values[i] = float16_le_to_double(data, base_offset + i * 2)
+      }
+    _ => raise UnsupportedDtype(meta.dtype)
   }
   @tensor.Tensor::from_array_with_shape(values, meta.shape.copy())
 }

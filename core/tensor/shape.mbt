@@ -14,6 +14,16 @@ pub fn Tensor::size(self : Tensor) -> Int {
 }
 
 ///|
+pub fn Tensor::dtype(self : Tensor) -> DType {
+  self.dtype_
+}
+
+///|
+pub fn Tensor::quant_params(self : Tensor) -> QuantParams? {
+  self.quant_params_
+}
+
+///|
 pub fn Tensor::get(self : Tensor, index : Array[Int]) -> Double {
   let offset = flat_index(self.shape_, index)
   self.data_[offset]

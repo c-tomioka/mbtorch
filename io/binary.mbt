@@ -5,6 +5,8 @@ priv struct BinaryTensorMeta {
   dtype : String
   offset : Int
   length : Int
+  scale : Double?
+  zero_point : Int?
 } derive(ToJson, FromJson)
 
 ///|
@@ -134,8 +136,8 @@ pub fn serialize_model_to_binary(
       layer_type: "Linear",
       in_features: ws[0],
       out_features: ws[1],
-      weight: { shape: ws, dtype: "F32", offset: w_offset, length: w_length },
-      bias: { shape: bs, dtype: "F32", offset: b_offset, length: b_length },
+      weight: { shape: ws, dtype: "F32", offset: w_offset, length: w_length, scale: None, zero_point: None },
+      bias: { shape: bs, dtype: "F32", offset: b_offset, length: b_length, scale: None, zero_point: None },
     })
   }
   // Build metadata JSON
@@ -227,24 +229,194 @@ pub fn deserialize_model_from_binary(
     }
     // Read weight tensor
     let w_meta = ld.weight
-    let w_num_elements = w_meta.length / 4
-    let w_values = Array::make(w_num_elements, 0.0)
-    for j = 0; j < w_num_elements; j = j + 1 {
-      w_values[j] = float32_le_to_double(data, buf_start + w_meta.offset + j * 4)
-    }
+    let w_values = decode_tensor_from_buf(
+      data, buf_start + w_meta.offset, w_meta.length,
+      w_meta.dtype, w_meta.scale, w_meta.zero_point,
+    )
     let weight = @tensor.Tensor::from_array_with_shape(w_values, w_meta.shape)
     // Read bias tensor
     let b_meta = ld.bias
-    let b_num_elements = b_meta.length / 4
-    let b_values = Array::make(b_num_elements, 0.0)
-    for j = 0; j < b_num_elements; j = j + 1 {
-      b_values[j] = float32_le_to_double(data, buf_start + b_meta.offset + j * 4)
-    }
+    let b_values = decode_tensor_from_buf(
+      data, buf_start + b_meta.offset, b_meta.length,
+      b_meta.dtype, b_meta.scale, b_meta.zero_point,
+    )
     let bias = @tensor.Tensor::from_array_with_shape(b_values, b_meta.shape)
     let linear = @nn.Linear::from_tensors(weight, bias)
     result.push((ld.name, linear))
   }
   result
+}
+
+///|
+/// Serialize named Linear layers to binary .mbt format with specified dtype.
+/// dtype: "F32" (4 bytes/elem), "F16" (2 bytes/elem), "I8" (1 byte/elem)
+pub fn serialize_model_to_binary_with_dtype(
+  layers : Array[(String, @nn.Linear)],
+  dtype : String,
+) -> Bytes {
+  let tensor_buf : Array[Byte] = []
+  let layer_metas : Array[BinaryLayerMeta] = []
+  for i = 0; i < layers.length(); i = i + 1 {
+    let (name, layer) = layers[i]
+    let w = layer.weight.data()
+    let b = layer.bias.data()
+    let ws = w.shape()
+    let bs = b.shape()
+    let w_data = w.to_array()
+    let b_data = b.to_array()
+    // Weight tensor
+    let w_offset = tensor_buf.length()
+    let (w_scale, w_zp) = encode_tensor_to_buf(tensor_buf, w_data, dtype)
+    let w_length = tensor_buf.length() - w_offset
+    // Bias tensor (always F32 for int8 to preserve precision)
+    let b_offset = tensor_buf.length()
+    let bias_dtype = if dtype == "I8" { "F32" } else { dtype }
+    let (b_scale, b_zp) = encode_tensor_to_buf(tensor_buf, b_data, bias_dtype)
+    let b_length = tensor_buf.length() - b_offset
+    layer_metas.push({
+      name,
+      layer_type: "Linear",
+      in_features: ws[0],
+      out_features: ws[1],
+      weight: { shape: ws, dtype, offset: w_offset, length: w_length, scale: w_scale, zero_point: w_zp },
+      bias: { shape: bs, dtype: bias_dtype, offset: b_offset, length: b_length, scale: b_scale, zero_point: b_zp },
+    })
+  }
+  let header : BinaryMbtHeader = {
+    format: "mbtorch-binary",
+    version: 1,
+    layers: layer_metas,
+  }
+  assemble_binary(header, tensor_buf)
+}
+
+///|
+/// Encode tensor data into buffer based on dtype. Returns (scale?, zero_point?) for I8.
+fn encode_tensor_to_buf(
+  buf : Array[Byte],
+  data : Array[Double],
+  dtype : String,
+) -> (Double?, Int?) {
+  match dtype {
+    "F32" => {
+      for j = 0; j < data.length(); j = j + 1 {
+        let bytes = double_to_float32_le(data[j])
+        buf.push(bytes[0])
+        buf.push(bytes[1])
+        buf.push(bytes[2])
+        buf.push(bytes[3])
+      }
+      (None, None)
+    }
+    "F16" => {
+      for j = 0; j < data.length(); j = j + 1 {
+        let bytes = double_to_float16_le(data[j])
+        buf.push(bytes[0])
+        buf.push(bytes[1])
+      }
+      (None, None)
+    }
+    "I8" => {
+      let (quantized, scale, zp) = @tensor.quantize_to_int8(data)
+      for j = 0; j < quantized.length(); j = j + 1 {
+        buf.push(quantized[j].to_byte())
+      }
+      (Some(scale), Some(zp))
+    }
+    _ => {
+      // Fallback to F32
+      for j = 0; j < data.length(); j = j + 1 {
+        let bytes = double_to_float32_le(data[j])
+        buf.push(bytes[0])
+        buf.push(bytes[1])
+        buf.push(bytes[2])
+        buf.push(bytes[3])
+      }
+      (None, None)
+    }
+  }
+}
+
+///|
+/// Decode tensor values from binary buffer based on dtype.
+fn decode_tensor_from_buf(
+  data : Bytes,
+  offset : Int,
+  num_bytes : Int,
+  dtype : String,
+  scale : Double?,
+  zero_point : Int?,
+) -> Array[Double] {
+  match dtype {
+    "F32" => {
+      let n = num_bytes / 4
+      let values = Array::make(n, 0.0)
+      for j = 0; j < n; j = j + 1 {
+        values[j] = float32_le_to_double(data, offset + j * 4)
+      }
+      values
+    }
+    "F16" => {
+      let n = num_bytes / 2
+      let values = Array::make(n, 0.0)
+      for j = 0; j < n; j = j + 1 {
+        values[j] = float16_le_to_double(data, offset + j * 2)
+      }
+      values
+    }
+    "I8" => {
+      let s = match scale {
+        Some(v) => v
+        None => 1.0
+      }
+      let zp = match zero_point {
+        Some(v) => v
+        None => 0
+      }
+      let values = Array::make(num_bytes, 0.0)
+      for j = 0; j < num_bytes; j = j + 1 {
+        values[j] = uint8_to_double(data[offset + j], s, zp)
+      }
+      values
+    }
+    _ => {
+      // Fallback to F32
+      let n = num_bytes / 4
+      let values = Array::make(n, 0.0)
+      for j = 0; j < n; j = j + 1 {
+        values[j] = float32_le_to_double(data, offset + j * 4)
+      }
+      values
+    }
+  }
+}
+
+///|
+/// Assemble binary .mbt file from header and tensor buffer.
+fn assemble_binary(header : BinaryMbtHeader, tensor_buf : Array[Byte]) -> Bytes {
+  let meta_str = header.to_json().stringify()
+  let meta_bytes = string_to_bytes(meta_str)
+  let meta_len = meta_bytes.length()
+  let result : Array[Byte] = []
+  result.push(b'M')
+  result.push(b'B')
+  result.push(b'T')
+  result.push(b'M')
+  result.push(b'\x01')
+  result.push(b'\x00')
+  result.push(b'\x00')
+  result.push(b'\x00')
+  result.push((meta_len & 0xFF).to_byte())
+  result.push(((meta_len >> 8) & 0xFF).to_byte())
+  result.push(((meta_len >> 16) & 0xFF).to_byte())
+  result.push(((meta_len >> 24) & 0xFF).to_byte())
+  for i = 0; i < meta_len; i = i + 1 {
+    result.push(meta_bytes[i])
+  }
+  for i = 0; i < tensor_buf.length(); i = i + 1 {
+    result.push(tensor_buf[i])
+  }
+  Bytes::from_array(result)
 }
 
 ///|

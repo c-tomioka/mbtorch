@@ -20,7 +20,7 @@ pub fn Tensor::matmul(self : Tensor, other : Tensor) -> Tensor {
       result[i * n + j] = sum
     }
   }
-  { data_: result, shape_: [m, n] }
+  { data_: result, shape_: [m, n], dtype_: Float32, quant_params_: None }
 }
 
 ///|
@@ -34,5 +34,5 @@ pub fn Tensor::transpose(self : Tensor) -> Tensor {
       result[j * rows + i] = self.data_[i * cols + j]
     }
   }
-  { data_: result, shape_: [cols, rows] }
+  { data_: result, shape_: [cols, rows], dtype_: Float32, quant_params_: None }
 }

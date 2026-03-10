@@ -126,6 +126,67 @@ test "binary preserves layer names" {
 }
 
 ///|
+/// D-T11: Binary f16 roundtrip — serialize with F16, deserialize, compare
+test "binary f16 roundtrip" {
+  let linear = @nn.Linear::new(3, 2, seed=42UL)
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[1.0, 2.0, 3.0]]),
+  )
+  let original = linear.forward(x)
+  let data = @io.serialize_model_to_binary_with_dtype([("fc1", linear)], "F16")
+  let layers = @io.deserialize_model_from_binary(data)
+  assert_eq(layers.length(), 1)
+  let restored = layers[0].1.forward(x)
+  for j = 0; j < 2; j = j + 1 {
+    let diff = (original.data().get([0, j]) - restored.data().get([0, j])).abs()
+    assert_true(diff < 0.1) // f16 has lower precision than f32
+  }
+}
+
+///|
+/// D-T12: Binary int8 roundtrip — serialize with I8, deserialize, compare
+test "binary int8 roundtrip" {
+  let linear = @nn.Linear::new(3, 2, seed=42UL)
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[1.0, 2.0, 3.0]]),
+  )
+  let original = linear.forward(x)
+  let data = @io.serialize_model_to_binary_with_dtype([("fc1", linear)], "I8")
+  let layers = @io.deserialize_model_from_binary(data)
+  assert_eq(layers.length(), 1)
+  let restored = layers[0].1.forward(x)
+  for j = 0; j < 2; j = j + 1 {
+    let diff = (original.data().get([0, j]) - restored.data().get([0, j])).abs()
+    assert_true(diff < 1.0) // int8 has significant quantization error
+  }
+}
+
+///|
+/// D-T13: Binary v1 backward compat — existing F32 binary loads with new code
+test "binary v1 backward compat" {
+  // Serialize with original F32 function
+  let linear = @nn.Linear::new(2, 1, seed=42UL)
+  let data = @io.serialize_model_to_binary([("fc", linear)])
+  // Deserialize with updated function (handles optional scale/zero_point)
+  let layers = @io.deserialize_model_from_binary(data)
+  assert_eq(layers.length(), 1)
+  assert_eq(layers[0].0, "fc")
+}
+
+///|
+/// D-T14: Binary f16 size reduction — f16 binary should be smaller than f32
+test "binary f16 size reduction" {
+  let linear = @nn.Linear::new(100, 50, seed=42UL)
+  let f32_data = @io.serialize_model_to_binary([("fc", linear)])
+  let f16_data = @io.serialize_model_to_binary_with_dtype([("fc", linear)], "F16")
+  // f16 should be noticeably smaller (weight data is half the size)
+  assert_true(f16_data.length() < f32_data.length())
+  // Rough check: tensor data dominates, so f16 should be roughly 50-70% of f32
+  let ratio = f16_data.length().to_double() / f32_data.length().to_double()
+  assert_true(ratio < 0.75)
+}
+
+///|
 test "binary json interconvert" {
   let l1 = @nn.Linear::new(2, 4, seed=42UL)
   let l2 = @nn.Linear::new(4, 1, seed=123UL)

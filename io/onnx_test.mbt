@@ -343,3 +343,54 @@ test "load_onnx_model forward matches" {
   let eps = 1.0e-5
   assert_true((y.data().get([0, 0]) - 6.0).abs() < eps)
 }
+
+///|
+/// Build a TensorProto with dtype=10 (FLOAT16) using raw_data field.
+fn test_build_tensor_proto_f16(
+  name : String,
+  shape : Array[Int],
+  values : Array[Double],
+) -> Array[Byte] {
+  let content : Array[Byte] = []
+  // field 1: dims (packed int64)
+  let dims_content : Array[Byte] = []
+  for i = 0; i < shape.length(); i = i + 1 {
+    test_append_all(dims_content, test_encode_varint(shape[i].to_uint64()))
+  }
+  test_append_all(content, test_encode_len_delimited(1, dims_content))
+  // field 2: data_type = 10 (FLOAT16)
+  test_append_all(content, test_encode_varint_field(2, 10UL))
+  // field 9: raw_data (packed float16 LE, 2 bytes per value)
+  let raw_content : Array[Byte] = []
+  for i = 0; i < values.length(); i = i + 1 {
+    let bits = @tensor.double_to_float16_bits(values[i])
+    raw_content.push((bits & 0xFF).to_byte())
+    raw_content.push(((bits >> 8) & 0xFF).to_byte())
+  }
+  test_append_all(content, test_encode_len_delimited(9, raw_content))
+  // field 8: name
+  test_append_all(content, test_encode_string_field(8, name))
+  content
+}
+
+///|
+/// D-T15: Parse ONNX TensorProto with dtype=10 (FLOAT16)
+test "onnx f16 tensor parse" {
+  let weight = test_build_tensor_proto_f16("W", [2, 1], [2.0, 3.0])
+  let bias = test_build_tensor_proto_f16("B", [1], [1.0])
+  let node = test_build_node_proto("Gemm", ["X", "W", "B"], ["Y"], [])
+  let graph = test_build_graph_proto([node], [weight, bias], ["X"], ["Y"])
+  let model_bytes = test_build_model_proto(graph)
+  // Should parse without error
+  let parsed = @io.parse_onnx(model_bytes)
+  assert_eq(parsed.nodes.length(), 1)
+  assert_eq(parsed.initializers.length(), 2)
+  // Weight data should be decoded from f16
+  let w_data = parsed.initializers[0].data
+  assert_eq(w_data.length(), 2)
+  let eps = 0.01
+  assert_true((w_data[0] - 2.0).abs() < eps)
+  assert_true((w_data[1] - 3.0).abs() < eps)
+  // dtype should be 10
+  assert_eq(parsed.initializers[0].dtype, 10)
+}

@@ -1,11 +1,11 @@
 ///|
 pub fn Tensor::scalar(value : Double) -> Tensor {
-  { data_: [value], shape_: [] }
+  { data_: [value], shape_: [], dtype_: Float32, quant_params_: None }
 }
 
 ///|
 pub fn Tensor::from_array(data : Array[Double]) -> Tensor {
-  { data_: data.copy(), shape_: [data.length()] }
+  { data_: data.copy(), shape_: [data.length()], dtype_: Float32, quant_params_: None }
 }
 
 ///|
@@ -22,7 +22,7 @@ pub fn Tensor::from_array_2d(data : Array[Array[Double]]) -> Tensor {
       flat[r * cols + c] = data[r][c]
     }
   }
-  { data_: flat, shape_: [rows, cols] }
+  { data_: flat, shape_: [rows, cols], dtype_: Float32, quant_params_: None }
 }
 
 ///|
@@ -36,17 +36,17 @@ fn shape_numel(shape : Array[Int]) -> Int {
 
 ///|
 pub fn Tensor::zeros(shape : Array[Int]) -> Tensor {
-  { data_: Array::make(shape_numel(shape), 0.0), shape_: shape.copy() }
+  { data_: Array::make(shape_numel(shape), 0.0), shape_: shape.copy(), dtype_: Float32, quant_params_: None }
 }
 
 ///|
 pub fn Tensor::ones(shape : Array[Int]) -> Tensor {
-  { data_: Array::make(shape_numel(shape), 1.0), shape_: shape.copy() }
+  { data_: Array::make(shape_numel(shape), 1.0), shape_: shape.copy(), dtype_: Float32, quant_params_: None }
 }
 
 ///|
 pub fn Tensor::fill(shape : Array[Int], value : Double) -> Tensor {
-  { data_: Array::make(shape_numel(shape), value), shape_: shape.copy() }
+  { data_: Array::make(shape_numel(shape), value), shape_: shape.copy(), dtype_: Float32, quant_params_: None }
 }
 
 ///|
@@ -68,7 +68,7 @@ pub fn Tensor::from_array_with_shape(
       "from_array_with_shape: data length \{data.length()} does not match shape \{shape} (expected \{expected})",
     )
   }
-  { data_: data.copy(), shape_: shape.copy() }
+  { data_: data.copy(), shape_: shape.copy(), dtype_: Float32, quant_params_: None }
 }
 
 ///|
@@ -84,5 +84,5 @@ pub fn Tensor::rand(shape : Array[Int], seed? : UInt64 = 42UL) -> Tensor {
     let bits = (state >> 33).to_int()
     data[i] = bits.to_double() / 1073741824.0 - 1.0
   }
-  { data_: data, shape_: shape.copy() }
+  { data_: data, shape_: shape.copy(), dtype_: Float32, quant_params_: None }
 }
