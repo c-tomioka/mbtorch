@@ -220,8 +220,10 @@ fn parse_attribute_proto(
         int_value = val.to_int().to_int64()
         pos = new_pos
       }
-      7 => {
-        // ints: repeated int64 (packed or individual)
+      7 | 8 => {
+        // field 7 = floats (repeated float), field 8 = ints (repeated int64)
+        // Per ONNX spec, ints is field 8. We also accept field 7 for backward
+        // compatibility with files exported before the field number fix.
         if wire_type == 2 {
           // packed
           let (field_len, data_start) = read_varint(data, pos)
