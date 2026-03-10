@@ -17,15 +17,6 @@ fn float16_le_to_double(data : Bytes, offset : Int) -> Double {
 }
 
 ///|
-/// Quantize a Double value to uint8 (0..255) given scale and zero_point.
-fn double_to_uint8(value : Double, scale : Double, zero_point : Int) -> Byte {
-  let mut q = (value / scale + zero_point.to_double() + 0.5).to_int()
-  if q < 0 { q = 0 }
-  if q > 255 { q = 255 }
-  q.to_byte()
-}
-
-///|
 /// Dequantize a uint8 byte to Double given scale and zero_point.
 fn uint8_to_double(b : Byte, scale : Double, zero_point : Int) -> Double {
   (b.to_int() - zero_point).to_double() * scale

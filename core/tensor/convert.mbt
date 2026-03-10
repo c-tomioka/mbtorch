@@ -149,7 +149,7 @@ pub fn Tensor::to_dtype(self : Tensor, target : DType) -> Tensor {
         quant_params_: Some(QuantParams::{ scale, zero_point: zp }),
       }
     }
-    _ =>
+    Float16 | Float32 | Float64 =>
       {
         data_: self.data_.copy(),
         shape_: self.shape_.copy(),

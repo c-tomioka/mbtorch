@@ -75,7 +75,6 @@ pub fn BatchNorm2d::forward(
 
 ///|
 /// BatchNorm2d has no trainable parameters in inference mode.
-pub fn BatchNorm2d::parameters(self : BatchNorm2d) -> Array[@autograd.Variable] {
-  ignore(self)
+pub fn BatchNorm2d::parameters(_self : BatchNorm2d) -> Array[@autograd.Variable] {
   []
 }

@@ -100,81 +100,7 @@ fn string_to_bytes(s : String) -> Array[Byte] {
 pub fn serialize_model_to_binary(
   layers : Array[(String, @nn.Linear)]
 ) -> Bytes {
-  // First pass: build tensor buffer and metadata
-  let tensor_buf : Array[Byte] = []
-  let layer_metas : Array[BinaryLayerMeta] = []
-  for i = 0; i < layers.length(); i = i + 1 {
-    let (name, layer) = layers[i]
-    let w = layer.weight.data()
-    let b = layer.bias.data()
-    let ws = w.shape()
-    let bs = b.shape()
-    let w_data = w.to_array()
-    let b_data = b.to_array()
-    // Weight tensor
-    let w_offset = tensor_buf.length()
-    for j = 0; j < w_data.length(); j = j + 1 {
-      let bytes = double_to_float32_le(w_data[j])
-      tensor_buf.push(bytes[0])
-      tensor_buf.push(bytes[1])
-      tensor_buf.push(bytes[2])
-      tensor_buf.push(bytes[3])
-    }
-    let w_length = tensor_buf.length() - w_offset
-    // Bias tensor
-    let b_offset = tensor_buf.length()
-    for j = 0; j < b_data.length(); j = j + 1 {
-      let bytes = double_to_float32_le(b_data[j])
-      tensor_buf.push(bytes[0])
-      tensor_buf.push(bytes[1])
-      tensor_buf.push(bytes[2])
-      tensor_buf.push(bytes[3])
-    }
-    let b_length = tensor_buf.length() - b_offset
-    layer_metas.push({
-      name,
-      layer_type: "Linear",
-      in_features: ws[0],
-      out_features: ws[1],
-      weight: { shape: ws, dtype: "F32", offset: w_offset, length: w_length, scale: None, zero_point: None },
-      bias: { shape: bs, dtype: "F32", offset: b_offset, length: b_length, scale: None, zero_point: None },
-    })
-  }
-  // Build metadata JSON
-  let header : BinaryMbtHeader = {
-    format: "mbtorch-binary",
-    version: 1,
-    layers: layer_metas,
-  }
-  let meta_str = header.to_json().stringify()
-  let meta_bytes = string_to_bytes(meta_str)
-  let meta_len = meta_bytes.length()
-  // Build final binary
-  let result : Array[Byte] = []
-  // Magic: "MBTM"
-  result.push(b'M')
-  result.push(b'B')
-  result.push(b'T')
-  result.push(b'M')
-  // Version: 1 (u32 LE)
-  result.push(b'\x01')
-  result.push(b'\x00')
-  result.push(b'\x00')
-  result.push(b'\x00')
-  // Metadata size (u32 LE)
-  result.push((meta_len & 0xFF).to_byte())
-  result.push(((meta_len >> 8) & 0xFF).to_byte())
-  result.push(((meta_len >> 16) & 0xFF).to_byte())
-  result.push(((meta_len >> 24) & 0xFF).to_byte())
-  // Metadata JSON
-  for i = 0; i < meta_len; i = i + 1 {
-    result.push(meta_bytes[i])
-  }
-  // Tensor buffer
-  for i = 0; i < tensor_buf.length(); i = i + 1 {
-    result.push(tensor_buf[i])
-  }
-  Bytes::from_array(result)
+  serialize_model_to_binary_with_dtype(layers, @tensor.Float32)
 }
 
 ///|
@@ -249,11 +175,11 @@ pub fn deserialize_model_from_binary(
 
 ///|
 /// Serialize named Linear layers to binary .mbt format with specified dtype.
-/// dtype: "F32" (4 bytes/elem), "F16" (2 bytes/elem), "I8" (1 byte/elem)
 pub fn serialize_model_to_binary_with_dtype(
   layers : Array[(String, @nn.Linear)],
-  dtype : String,
+  dtype : @tensor.DType,
 ) -> Bytes {
+  let dtype_tag = dtype.to_tag()
   let tensor_buf : Array[Byte] = []
   let layer_metas : Array[BinaryLayerMeta] = []
   for i = 0; i < layers.length(); i = i + 1 {
@@ -266,20 +192,20 @@ pub fn serialize_model_to_binary_with_dtype(
     let b_data = b.to_array()
     // Weight tensor
     let w_offset = tensor_buf.length()
-    let (w_scale, w_zp) = encode_tensor_to_buf(tensor_buf, w_data, dtype)
+    let (w_scale, w_zp) = encode_tensor_to_buf(tensor_buf, w_data, dtype_tag)
     let w_length = tensor_buf.length() - w_offset
     // Bias tensor (always F32 for int8 to preserve precision)
     let b_offset = tensor_buf.length()
-    let bias_dtype = if dtype == "I8" { "F32" } else { dtype }
-    let (b_scale, b_zp) = encode_tensor_to_buf(tensor_buf, b_data, bias_dtype)
+    let bias_tag = if dtype_tag == "I8" { "F32" } else { dtype_tag }
+    let (b_scale, b_zp) = encode_tensor_to_buf(tensor_buf, b_data, bias_tag)
     let b_length = tensor_buf.length() - b_offset
     layer_metas.push({
       name,
       layer_type: "Linear",
       in_features: ws[0],
       out_features: ws[1],
-      weight: { shape: ws, dtype, offset: w_offset, length: w_length, scale: w_scale, zero_point: w_zp },
-      bias: { shape: bs, dtype: bias_dtype, offset: b_offset, length: b_length, scale: b_scale, zero_point: b_zp },
+      weight: { shape: ws, dtype: dtype_tag, offset: w_offset, length: w_length, scale: w_scale, zero_point: w_zp },
+      bias: { shape: bs, dtype: bias_tag, offset: b_offset, length: b_length, scale: b_scale, zero_point: b_zp },
     })
   }
   let header : BinaryMbtHeader = {
@@ -323,17 +249,7 @@ fn encode_tensor_to_buf(
       }
       (Some(scale), Some(zp))
     }
-    _ => {
-      // Fallback to F32
-      for j = 0; j < data.length(); j = j + 1 {
-        let bytes = double_to_float32_le(data[j])
-        buf.push(bytes[0])
-        buf.push(bytes[1])
-        buf.push(bytes[2])
-        buf.push(bytes[3])
-      }
-      (None, None)
-    }
+    other => abort("encode_tensor_to_buf: unsupported dtype \"\{other}\"")
   }
 }
 
@@ -379,15 +295,7 @@ fn decode_tensor_from_buf(
       }
       values
     }
-    _ => {
-      // Fallback to F32
-      let n = num_bytes / 4
-      let values = Array::make(n, 0.0)
-      for j = 0; j < n; j = j + 1 {
-        values[j] = float32_le_to_double(data, offset + j * 4)
-      }
-      values
-    }
+    other => abort("decode_tensor_from_buf: unsupported dtype \"\{other}\"")
   }
 }
 

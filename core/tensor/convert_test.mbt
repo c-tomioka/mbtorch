@@ -119,7 +119,7 @@ test "to_dtype Float16 preserves data" {
   assert_eq(t16.dtype(), @tensor.Float16)
   // Data should be the same (compute stays in Double)
   assert_eq(t16.to_array(), t.to_array())
-  assert_true(t16.quant_params().is_empty())
+  assert_true(t16.quant_params() is None)
 }
 
 ///|

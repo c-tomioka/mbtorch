@@ -8,7 +8,7 @@
 pub fn export_onnx(
   layers : Array[@nn.Layer],
   input_shape : Array[Int],
-) -> Bytes raise OnnxError {
+) -> Bytes {
   let graph = layers_to_onnx_graph(layers, input_shape)
   let graph_bytes = encode_onnx_graph(graph)
   build_model_proto_with_opset(graph_bytes, 13)
@@ -19,7 +19,7 @@ pub fn export_onnx(
 fn layers_to_onnx_graph(
   layers : Array[@nn.Layer],
   _input_shape : Array[Int],
-) -> OnnxGraph raise OnnxError {
+) -> OnnxGraph {
   let nodes : Array[OnnxNode] = []
   let initializers : Array[OnnxTensor] = []
   let mut current_name = "input"
@@ -257,14 +257,14 @@ fn export_batchnorm2d(
 ///|
 /// Encode an OnnxGraph to protobuf bytes (GraphProto).
 fn encode_onnx_graph(graph : OnnxGraph) -> Array[Byte] {
-  encode_onnx_graph_with_dtype(graph, "F32")
+  encode_onnx_graph_with_dtype(graph, @tensor.Float32)
 }
 
 ///|
 /// Encode an OnnxGraph to protobuf bytes with specified dtype for initializers.
 fn encode_onnx_graph_with_dtype(
   graph : OnnxGraph,
-  dtype : String,
+  dtype : @tensor.DType,
 ) -> Array[Byte] {
   // Encode each node
   let node_bytes : Array[Array[Byte]] = []
@@ -290,9 +290,11 @@ fn encode_onnx_graph_with_dtype(
   for i = 0; i < graph.initializers.length(); i = i + 1 {
     let init = graph.initializers[i]
     match dtype {
-      "F16" =>
+      @tensor.Float16 =>
         init_bytes.push(build_tensor_proto_f16(init.name, init.shape, init.data))
-      _ =>
+      @tensor.Float32 | @tensor.Float64 =>
+        init_bytes.push(build_tensor_proto(init.name, init.shape, init.data))
+      @tensor.Int8 =>
         init_bytes.push(build_tensor_proto(init.name, init.shape, init.data))
     }
   }
@@ -306,12 +308,11 @@ fn encode_onnx_graph_with_dtype(
 
 ///|
 /// Export MbTorch layers to ONNX protobuf bytes with specified dtype for weights.
-/// dtype: "F32" (default) or "F16" (half-precision weights).
 pub fn export_onnx_with_dtype(
   layers : Array[@nn.Layer],
   input_shape : Array[Int],
-  dtype : String,
-) -> Bytes raise OnnxError {
+  dtype : @tensor.DType,
+) -> Bytes {
   let graph = layers_to_onnx_graph(layers, input_shape)
   let graph_bytes = encode_onnx_graph_with_dtype(graph, dtype)
   build_model_proto_with_opset(graph_bytes, 13)

@@ -156,33 +156,6 @@ fn build_tensor_proto_f16(
 }
 
 ///|
-/// Build a TensorProto with raw_data instead of float_data.
-fn build_tensor_proto_raw(
-  name : String,
-  shape : Array[Int],
-  values : Array[Double],
-) -> Array[Byte] {
-  let content : Array[Byte] = []
-  // Field 1: dims
-  let dims_content : Array[Byte] = []
-  for i = 0; i < shape.length(); i = i + 1 {
-    append_all(dims_content, encode_varint(shape[i].to_uint64()))
-  }
-  append_all(content, encode_len_delimited(1, dims_content))
-  // Field 2: data_type = 1 (FLOAT)
-  append_all(content, encode_varint_field(2, 1UL))
-  // Field 8: name
-  append_all(content, encode_string_field(8, name))
-  // Field 9: raw_data (LE float32 bytes)
-  let raw_content : Array[Byte] = []
-  for i = 0; i < values.length(); i = i + 1 {
-    append_all(raw_content, onnx_float32_to_le_bytes(values[i]))
-  }
-  append_all(content, encode_len_delimited(9, raw_content))
-  content
-}
-
-///|
 /// Build a NodeProto with integer-only attributes.
 /// NodeProto fields: 1=input(repeated string), 2=output(repeated string), 4=op_type, 5=attribute
 fn build_node_proto(
@@ -313,16 +286,6 @@ fn build_graph_proto(
     append_all(content, encode_len_delimited(12, build_value_info(outputs[i])))
   }
   content
-}
-
-///|
-/// Build a complete ModelProto wrapping a graph (no opset_import).
-/// ModelProto field 7: graph (LEN)
-fn build_model_proto(graph : Array[Byte]) -> Bytes {
-  let content : Array[Byte] = []
-  // Field 7: graph
-  append_all(content, encode_len_delimited(7, graph))
-  Bytes::from_array(content)
 }
 
 ///|

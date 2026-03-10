@@ -236,7 +236,7 @@ test "export f16 roundtrip" {
   let linear = @nn.Linear::from_tensors(weight, bias)
   let layers : Array[@nn.Layer] = [@nn.Layer::Linear(linear)]
   // Export as F16
-  let onnx_bytes = @io.export_onnx_with_dtype(layers, [1, 2], "F16")
+  let onnx_bytes = @io.export_onnx_with_dtype(layers, [1, 2], @tensor.Float16)
   // Parse back
   let graph = @io.parse_onnx(onnx_bytes)
   assert_eq(graph.nodes.length(), 1)
@@ -277,7 +277,7 @@ test "mlp f16 inference parity" {
   }
   let expected = h.data().get([0, 0])
   // Export as F16, reimport, forward
-  let onnx_bytes = @io.export_onnx_with_dtype(layers, [1, 2], "F16")
+  let onnx_bytes = @io.export_onnx_with_dtype(layers, [1, 2], @tensor.Float16)
   let imported = @io.load_onnx_model(onnx_bytes)
   let x2 = @autograd.Variable::new(
     @tensor.Tensor::from_array_2d([[1.0, 1.0]]),
@@ -304,7 +304,7 @@ test "linear int8 inference parity" {
   )
   let original = linear.forward(x)
   // Serialize as int8 binary, deserialize, forward
-  let data = @io.serialize_model_to_binary_with_dtype([("fc", linear)], "I8")
+  let data = @io.serialize_model_to_binary_with_dtype([("fc", linear)], @tensor.Int8)
   let restored = @io.deserialize_model_from_binary(data)
   let y = restored[0].1.forward(x)
   // int8 has significant quantization error, but should be in the right ballpark

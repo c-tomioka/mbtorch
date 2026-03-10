@@ -133,7 +133,7 @@ test "binary f16 roundtrip" {
     @tensor.Tensor::from_array_2d([[1.0, 2.0, 3.0]]),
   )
   let original = linear.forward(x)
-  let data = @io.serialize_model_to_binary_with_dtype([("fc1", linear)], "F16")
+  let data = @io.serialize_model_to_binary_with_dtype([("fc1", linear)], @tensor.Float16)
   let layers = @io.deserialize_model_from_binary(data)
   assert_eq(layers.length(), 1)
   let restored = layers[0].1.forward(x)
@@ -151,7 +151,7 @@ test "binary int8 roundtrip" {
     @tensor.Tensor::from_array_2d([[1.0, 2.0, 3.0]]),
   )
   let original = linear.forward(x)
-  let data = @io.serialize_model_to_binary_with_dtype([("fc1", linear)], "I8")
+  let data = @io.serialize_model_to_binary_with_dtype([("fc1", linear)], @tensor.Int8)
   let layers = @io.deserialize_model_from_binary(data)
   assert_eq(layers.length(), 1)
   let restored = layers[0].1.forward(x)
@@ -178,7 +178,7 @@ test "binary v1 backward compat" {
 test "binary f16 size reduction" {
   let linear = @nn.Linear::new(100, 50, seed=42UL)
   let f32_data = @io.serialize_model_to_binary([("fc", linear)])
-  let f16_data = @io.serialize_model_to_binary_with_dtype([("fc", linear)], "F16")
+  let f16_data = @io.serialize_model_to_binary_with_dtype([("fc", linear)], @tensor.Float16)
   // f16 should be noticeably smaller (weight data is half the size)
   assert_true(f16_data.length() < f32_data.length())
   // Rough check: tensor data dominates, so f16 should be roughly 50-70% of f32
