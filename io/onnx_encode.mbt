@@ -216,12 +216,13 @@ fn build_node_proto_full(
     // Field 1: name
     append_all(attr_content, encode_string_field(1, attr.name))
     if attr.ints.length() > 0 {
-      // Field 7: ints (packed int64)
+      // Field 8: ints (repeated int64, packed)
+      // Note: field 7 is floats, field 8 is ints in AttributeProto
       let ints_content : Array[Byte] = []
       for j = 0; j < attr.ints.length(); j = j + 1 {
         append_all(ints_content, encode_varint(attr.ints[j].to_uint64()))
       }
-      append_all(attr_content, encode_len_delimited(7, ints_content))
+      append_all(attr_content, encode_len_delimited(8, ints_content))
       // Field 20: type = 7 (INTS)
       append_all(attr_content, encode_varint_field(20, 7UL))
     } else if attr.float_value != 0.0 {
