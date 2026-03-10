@@ -42,7 +42,7 @@ mbtorch/
   core/
     tensor/      # Tensor types and forward-only numeric ops
     autograd/    # Autograd engine and gradient definitions
-  nn/            # Layers and high-level neural network building blocks
+  nn/            # Layers (Linear, Conv2d, BatchNorm2d, SelfAttention) and building blocks
   optim/         # Optimization algorithms (SGD, Adam, etc.)
   io/            # Model import/export (ONNX, safetensors, .mbt)
   examples/      # Demos, browser/edge examples, small end-to-end scripts
