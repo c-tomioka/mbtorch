@@ -32,7 +32,7 @@ MbTorch focuses on small and mid-sized neural networks (MLP, CNN, Self-Attention
 
 ## Project Status
 
-MbTorch has completed **Phase 2** of its roadmap. Building on the Phase 1 foundation of tensors, autograd, MLP/CNN layers, and model I/O, Phase 2 added three major capabilities: ONNX export for all six layer types at opset 13 (ADR-0010), a DType extension with float16 and int8 storage that reduces model sizes by 50–75% (ADR-0011), and a Self-Attention MVP with full autograd support enabling Transformer-style model import, export, and training (ADR-0012). The autograd engine was extended to N-dimensional tensors with five new gradient functions. All 177 tests pass (wasm-gc build green). You can now define, train, save/restore, import, and export neural networks — including MLP, CNN, and attention-based models — entirely in MoonBit.
+MbTorch has completed **Phase 2** of its roadmap. Building on the Phase 1 foundation of tensors, autograd, MLP/CNN layers, and model I/O, Phase 2 added three major capabilities: ONNX export for all six layer types at opset 13 (ADR-0010), a DType extension with float16 and int8 storage that reduces model sizes by 50–75% (ADR-0011), and a Self-Attention MVP with full autograd support enabling Transformer-style model import, export, and training (ADR-0012). The autograd engine was extended to N-dimensional tensors with five new gradient functions. All 189 tests pass (wasm-gc build green). ONNX export correctness is verified against onnxruntime for both MLP and CNN models. You can now define, train, save/restore, import, and export neural networks — including MLP, CNN, and attention-based models — entirely in MoonBit.
 
 **Next up:** Conv2d training (backward pass), lightweight fine-tuning (LoRA/adapters), and browser demos for CNN/attention inference.
 
@@ -47,11 +47,11 @@ MbTorch has completed **Phase 2** of its roadmap. Building on the Phase 1 founda
 - **Model I/O** — Serialize/deserialize models to `.mbt`-style JSON via `serialize_model` / `deserialize_model`; roundtrip-tested with trained models
 - **Binary `.mbt` Format** — Compact binary serialization (`serialize_model_to_binary` / `deserialize_model_from_binary`); JSON metadata header + packed tensor buffer; float32/float16/int8 dtype support with `serialize_model_to_binary_with_dtype`; interconvertible with JSON `.mbt`
 - **ONNX Import** — Hand-written protobuf parser; MLP support (Gemm/MatMul/Add/Relu → Linear); CNN support (Conv/BatchNormalization/Relu/Flatten/Gemm → Layer enum); SelfAttention support (9-node Gemm×3+Transpose+MatMul+Div+Softmax+MatMul+Gemm pattern); float32 and float16 tensors
-- **ONNX Export** — `export_onnx()` for sequential models (Linear, Conv2d, BatchNorm2d, Relu, Flatten, SelfAttention); opset 13 compatible; `export_onnx_with_dtype()` for float16 export
+- **ONNX Export** — `export_onnx()` for sequential models (Linear, Conv2d, BatchNorm2d, Relu, Flatten, SelfAttention); opset 13 compatible; onnxruntime parity verified for MLP and CNN; `export_onnx_with_dtype()` for float16 export
 - **safetensors Import** — Binary parser for safetensors format; float32 and float16 tensors; JSON header + raw data layout
 - **DType Extension** — `DType` enum (Float64/Float32/Float16/Int8); `Tensor::to_dtype()` conversion; `QuantParams` for int8 weight-only quantization; integrated with binary `.mbt`, ONNX export, and safetensors import
 - **E2E Import** — `load_model_from_onnx_and_safetensors` for MLPs; `load_cnn_model_from_onnx_and_safetensors` for CNNs; `import_self_attention_from_onnx` for attention layers; PyTorch → ONNX + safetensors → MbTorch import with forward inference parity verified
-- **Examples** — 7 working demos: `basic_tensor_ops`, `basic_autograd`, `basic_mlp`, `save_mlp`, `import_mlp` (PyTorch MLP import), `import_cnn` (PyTorch CNN import), `web_mlp` (browser demo)
+- **Examples** — 9 working demos: `basic_tensor_ops`, `basic_autograd`, `basic_mlp`, `save_mlp`, `import_mlp` (PyTorch MLP import), `import_cnn` (PyTorch CNN import), `export_mlp` (ONNX export + onnxruntime verification), `export_cnn` (CNN ONNX export + onnxruntime verification), `web_mlp` (browser demo)
 
 ### Planned
 
@@ -98,6 +98,8 @@ More examples:
 - [`save_mlp`](examples/save_mlp/) — Train, serialize to JSON and binary `.mbt`, and verify output parity
 - [`import_mlp`](examples/import_mlp/) — Import a PyTorch MLP via ONNX + safetensors and verify inference parity
 - [`import_cnn`](examples/import_cnn/) — Import a PyTorch CNN (Conv2d → BN → ReLU → Flatten → Linear) via ONNX + safetensors
+- [`export_mlp`](examples/export_mlp/) — Train an MLP, export to ONNX, verify with onnxruntime (parity < 1e-6)
+- [`export_cnn`](examples/export_cnn/) — Build a CNN (Conv2d → BN → ReLU → Flatten → Linear), export to ONNX, verify with onnxruntime (parity < 1e-7)
 - [`web_mlp`](examples/web_mlp/) — **Run the same MLP training in the browser** (WebAssembly)
 - [`basic_autograd`](examples/basic_autograd/) — Forward + backward with `Variable`
 - [`basic_tensor_ops`](examples/basic_tensor_ops/) — Tensor constructors and numeric ops
@@ -223,7 +225,7 @@ Goal: Make MbTorch interoperable with existing model ecosystems, support its own
   - ONNX import: 9-node MatMul + Softmax self-attention pattern (Gemm×3 + Transpose + MatMul + Div + Softmax + MatMul + Gemm) → `SelfAttention`  
   - ONNX export: same 9-node subgraph (opset 13 compatible)  
 
-> Phase 2 total: **177 tests passing** (including CNN, dtype, and Self-Attention).  
+> Phase 2 total: **189 tests passing** (including CNN, dtype, Self-Attention, and ONNX attribute/roundtrip verification).  
 > Design decisions documented in [`docs/adr/`](docs/adr/) (ADR-0008 through ADR-0012).
 
 ### Phase 3: Browser, Edge & Fine-Tuning UX
