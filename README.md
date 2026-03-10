@@ -174,85 +174,130 @@ Goal: Establish a minimal but solid core in MoonBit, with TDD and CI as the defa
 - Synthetic-data integration tests where training reduces loss over time ✅ (106 tests passing)
 - JSON-based model serialization (`.mbt`-style serialize/deserialize) ✅
 
-### Phase 2: Model Formats and I/O ✅
+### Phase 2: Model Formats, ONNX & Attention ✅
 
-Goal: Make MbTorch interoperable with existing model ecosystems and support its own native format.
+Goal: Make MbTorch interoperable with existing model ecosystems, support its own native format, and cover MLP/CNN/Attention-style models end-to-end.
 
-- **ONNX import (Phase 1 subset)** ✅
-  - Hand-written protobuf parser for ONNX ModelProto/GraphProto/TensorProto
-  - Supported ops: Gemm, MatMul, Add, Relu (float32, 1D/2D tensors, sequential MLPs)
-  - `parse_onnx` / `load_onnx_model` APIs
-- **safetensors import (Phase 1 subset)** ✅
-  - Binary parser: JSON header + raw float32/float16 tensor data
-  - `parse_safetensors_header` / `load_safetensors` APIs
-- **E2E import path** ✅
-  - `load_model_from_onnx_and_safetensors`: ONNX structure + safetensors weights → Linear layers
-  - PyTorch → torch.onnx.export + safetensors.save → MbTorch import → inference verified
-- **MbTorch-native format (`.mbt` JSON)** ✅
-  - `serialize_model` / `deserialize_model` for JSON-based model I/O
-- **End-to-end PyTorch → MbTorch import demo** ✅
-  - Export a trained PyTorch MLP to ONNX + safetensors in Python
-  - Import it into MbTorch via `load_model_from_onnx_and_safetensors`
-  - End-to-end parity verified in `examples/import_mlp` (max error ≈ 4.3e-7)
-- **MbTorch-native binary format (`.mbt` binary)** ✅
-  - `serialize_model_to_binary` / `deserialize_model_from_binary` APIs
-  - float32 packed tensor buffer with JSON metadata; interconvertible with JSON `.mbt`
-  - MVP scope: Linear/MLP, 1D/2D tensors
-- **Conv2d + BatchNorm2d (inference-only)** ✅
-  - `Conv2d` / `BatchNorm2d` layers and `Layer` enum for heterogeneous models
-  - ONNX import: Conv, BatchNormalization, Relu, Flatten, Gemm → `load_cnn_model_from_onnx_and_safetensors`
-  - Constraints: 2D conv, groups=1, dilations=[1,1], float32, NCHW
-  - E2E parity verified in `examples/import_cnn`
-- **ONNX export** ✅
-  - `export_onnx()` / `export_onnx_with_dtype()` for sequential models (all 6 Layer types)
-  - Opset 13 compatible; float32 and float16 export
-- **DType extension (float16 / int8)** ✅
-  - `DType` enum (Float64/Float32/Float16/Int8); `Tensor::to_dtype()` conversion
-  - `QuantParams` for int8 weight-only quantization
-  - Binary `.mbt` float16/int8 support; ONNX float16 export; safetensors float16 import
-  - Precision verified: f16 MLP inference error < 1e-2, int8 weight-only error < 0.5
-- **Self-Attention MVP** ✅
-  - `SelfAttention` struct (Wq/Wk/Wv/Wo + num_heads); single-head and multi-head
-  - Tensor ops: exp, softmax, batched_matmul_2d, transpose_last2
-  - Autograd: 5 new GradFn (Scale, Softmax, BatchedMatmul, TransposeLast2, Reshape); N-D tensor support
-  - ONNX import: 9-node pattern match (Gemm×3+Transpose+MatMul+Div+Softmax+MatMul+Gemm)
-  - ONNX export: 9-node subgraph (opset 13 compatible)
-- Pooling layers (MaxPool2d, AvgPool2d) — planned
-- Binary `.mbt` checksum — planned
+- **ONNX import (MLP subset)** ✅  
+  - Hand-written protobuf parser for ONNX ModelProto/GraphProto/TensorProto  
+  - Supported ops: Gemm, MatMul, Add, Relu (float32, 1D/2D tensors, sequential MLPs)  
+  - `parse_onnx` / `load_onnx_model` APIs  
 
-> Phase 2 total: **177 tests passing**. Design decisions documented in [`docs/adr/`](docs/adr/) (ADR-0008 through ADR-0012).
+- **safetensors import (float32/float16)** ✅  
+  - Binary parser: JSON header + raw float32/float16 tensor data  
+  - `parse_safetensors_header` / `load_safetensors` APIs  
+
+- **E2E import path (MLP)** ✅  
+  - `load_model_from_onnx_and_safetensors`: ONNX structure + safetensors weights → `Linear` layers  
+  - PyTorch → `torch.onnx.export` + `safetensors.save` → MbTorch import → inference parity verified  
+
+- **MbTorch-native format (`.mbt` JSON)** ✅  
+  - `serialize_model` / `deserialize_model` for JSON-based model I/O  
+
+- **MbTorch-native binary format (`.mbt` binary)** ✅  
+  - `serialize_model_to_binary` / `deserialize_model_from_binary` APIs  
+  - Layout: `magic "MBTM"` + version + metadata_size + JSON metadata + packed tensor buffer  
+  - DType-aware: float32 / float16 / int8 storage  
+  - Interconvertible with JSON `.mbt`; v1 binary remains backward compatible  
+
+- **Conv2d + BatchNorm2d (inference-only)** ✅  
+  - `Conv2d` / `BatchNorm2d` layers and `Layer` enum for heterogeneous models  
+  - ONNX import: Conv, BatchNormalization, Relu, Flatten, Gemm → `load_cnn_model_from_onnx_and_safetensors`  
+  - Constraints: 2D conv, groups=1, dilations=[1,1], NCHW, float32  
+
+- **ONNX export (Linear/CNN/Attention)** ✅  
+  - `export_onnx()` for sequential models: `Linear`, `Conv2d`, `BatchNorm2d`, `Relu`, `Flatten`, `SelfAttention`  
+  - Opset 13 compatible; float32  
+  - `export_onnx_with_dtype()` for float16 export  
+
+- **DType extension (float16 / int8 storage)** ✅  
+  - `DType` enum (Float64/Float32/Float16/Int8) and `QuantParams` for int8 weight-only quantization  
+  - `Tensor::to_dtype()` conversion between f32/f16/int8 (storage)  
+  - Integrated with binary `.mbt`, ONNX export, safetensors import  
+  - Precision verified: f16 MLP inference error < 1e-2; int8 weight-only Linear error < 0.5  
+
+- **Self-Attention MVP** ✅  
+  - `SelfAttention` struct (Wq/Wk/Wv/Wo + num_heads), autograd-enabled  
+  - Core ops: `exp`, `softmax`, `batched_matmul_2d`, `transpose_last2`, `reshape`  
+  - Autograd: scale/softmax/batched_matmul_2d/transpose_last2/reshape grad functions; N-D tensor support  
+  - ONNX import: 9-node MatMul + Softmax self-attention pattern (Gemm×3 + Transpose + MatMul + Div + Softmax + MatMul + Gemm) → `SelfAttention`  
+  - ONNX export: same 9-node subgraph (opset 13 compatible)  
+
+> Phase 2 total: **177 tests passing** (including CNN, dtype, and Self-Attention).  
+> Design decisions documented in [`docs/adr/`](docs/adr/) (ADR-0008 through ADR-0012).
 
 ### Phase 3: Browser, Edge & Fine-Tuning UX
 
-Goal: Deliver the core user experience: local, privacy-preserving fine-tuning and inference on browsers and edge devices.
+Goal: Deliver the core user experience: local, privacy-preserving fine-tuning and inference on browsers and edge devices, built on top of the Phase 1–2 core.
 
-- **WASM/Edge Runtime**
-  - Build and optimize a MbTorch runtime path targeting WebAssembly for browser and edge runtimes
-  - Browser demo: `web_mlp` with 6-variant comparison (SGD/Adam × ReLU/tanh/sigmoid) ✅
-  - Browser demos for CNN and attention model inference — planned
-- **Conv2d Training**
-  - Backward pass and gradient computation for Conv2d/BatchNorm2d
-- **Lightweight Fine-Tuning**
-  - Support parameter-efficient tuning (e.g. LoRA/adapters) on top of imported models
-  - Partial training (freeze base model, train only additional parameters)
-- **Offline Optimization Flow (MVP)**
-  - Download a pretrained model (ONNX + safetensors) once
-  - Run short on-device fine-tuning on user data
-  - Save the personalized model in `.mbt` format to local storage (browser or file system)
-- **Docs and Examples**
-  - “Build a tiny MLP in MoonBit” tutorial
-  - “Import a PyTorch model via ONNX into MbTorch” guide
-  - Browser demo for local personalization and inference
+- **WASM/Edge Runtime UX**  
+  - Keep MbTorch’s WASM path efficient and small for browser and edge runtimes  
+  - Existing demo: `web_mlp` trains 6 MLP variants entirely in-browser (SGD/Adam × ReLU/tanh/sigmoid) ✅  
+  - Add browser demos for:
+    - CNN inference (e.g. small ConvNet for digit/character recognition)  
+    - Self-Attention / tiny Transformer inference on toy NLP tasks  
+
+- **Conv2d & CNN Training**  
+  - Implement backward pass and gradients for `Conv2d` / `BatchNorm2d`  
+  - Extend autograd tests to cover CNN training (loss decreasing over time)  
+  - Provide an example that trains a small CNN end-to-end in MoonBit (CLI)  
+
+- **Lightweight Fine-Tuning & Personalization**  
+  - Add parameter-freeze APIs and utilities (selectively train subsets of layers)  
+  - Introduce LoRA/adapter-style layers for parameter-efficient fine-tuning on imported models  
+  - Provide “on-device fine-tuning” flows:
+    - Import ONNX + safetensors model → attach adapters → fine-tune only adapter parameters  
+    - Save personalized variants as `.mbt` (JSON/binary)  
+
+- **Data Utilities & Training UX**  
+  - Mini-batch helpers (simple Dataset/DataLoader-style iteration)  
+  - Common preprocessing utilities (normalization, standardization, basic augmentations)  
+  - Lightweight training helpers:
+    - Learning-rate schedulers (step, cosine, etc.)  
+    - Gradient clipping and weight decay helpers  
+    - Simple hooks for logging loss/metrics  
+
+- **Docs and Examples**  
+  - “Build a tiny MLP in MoonBit” tutorial  
+  - “Import a PyTorch model via ONNX into MbTorch” guide (MLP/CNN/Attention)  
+  - Browser demo and guide for local personalization and inference (fine-tune-once, run offline)
 
 ### Future Directions
 
 Potential future extensions (subject to change):
 
-- Additional layer types: pooling (MaxPool2d, AvgPool2d), RNNs, LayerNorm, TransformerBlock
-- Extended Attention: Cross-Attention, causal mask, KV cache, Grouped Query Attention
-- Quantization and model compression for smaller footprints on edge devices
-- WebGPU or other accelerators when available in target environments
-- Federated learning-style workflows built on top of MbTorch’s on-device training
+- **Layers & Architectures**  
+  - Pooling layers (MaxPool2d, AvgPool2d)  
+  - LayerNorm, GroupNorm, InstanceNorm  
+  - RNN/LSTM/GRU and time-series friendly layers  
+  - Higher-level `TransformerBlock` (Self-Attention + MLP + LayerNorm + residuals)  
+  - Extended Attention:
+    - Cross-Attention, causal masks, KV cache  
+    - Grouped Query / Multi-Query Attention  
+
+- **Quantization & Precision**  
+  - Native float16 execution paths and mixed-precision training  
+  - More advanced int8 quantization:
+    - Activation quantization, per-channel scales, QAT support  
+  - Automatic quantization/dequantization passes and tooling for `.mbt` ↔ ONNX  
+
+- **Data Pipeline & Orchestration**  
+  - Richer Dataset/DataLoader abstractions  
+  - Built-in logging, checkpointing, and early-stopping helpers  
+  - Simple experiment tracking for edge/browsers (e.g. local storage-based histories)  
+
+- **Edge Performance & Hardware Acceleration**  
+  - WebGPU or other accelerators when available in target environments  
+  - Platform-specific optimizations for common operations on constrained devices  
+
+- **Federated / Collaborative Workflows**  
+  - Federated-learning-style workflows built on MbTorch’s on-device training model  
+  - Tools for aggregating `.mbt` updates across clients while preserving privacy  
+
+- **Ecosystem & Tooling**  
+  - CLI utilities to convert between `.mbt` and ONNX/safetensors variants  
+  - More comprehensive E2E tests and benchmarks (including small Transformer models)  
+  - Deeper integrations with MoonBit ecosystem packages and tooling
 
 ## Installation
 
