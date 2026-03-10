@@ -59,6 +59,17 @@ fn layers_to_onnx_graph(
         }
         nodes.push(node)
       }
+      @nn.Layer::SelfAttention(sa) => {
+        let (sa_nodes, sa_inits) = export_self_attention(
+          sa, i, current_name, out_name,
+        )
+        for j = 0; j < sa_nodes.length(); j = j + 1 {
+          nodes.push(sa_nodes[j])
+        }
+        for j = 0; j < sa_inits.length(); j = j + 1 {
+          initializers.push(sa_inits[j])
+        }
+      }
       @nn.Layer::Flatten => {
         let node = OnnxNode::{
           op_type: "Flatten",
@@ -304,6 +315,150 @@ fn encode_onnx_graph_with_dtype(
     graph.input_names,
     graph.output_names,
   )
+}
+
+///|
+/// Export a SelfAttention layer as a subgraph:
+/// Gemm(Q) + Gemm(K) + Gemm(V) + Transpose(K^T) + MatMul(QK^T) + Div(scale) + Softmax + MatMul(attn@V) + Gemm(O)
+fn export_self_attention(
+  sa : @nn.SelfAttention,
+  layer_idx : Int,
+  input_name : String,
+  output_name : String,
+) -> (Array[OnnxNode], Array[OnnxTensor]) {
+  let prefix = "sa_\{layer_idx}"
+  let nodes : Array[OnnxNode] = []
+  let inits : Array[OnnxTensor] = []
+  // Helper: export a Linear as Gemm (transB=1)
+  fn add_gemm(
+    linear : @nn.Linear,
+    name : String,
+    in_name : String,
+    out_name : String,
+    nodes : Array[OnnxNode],
+    inits : Array[OnnxTensor],
+  ) {
+    let w_name = name + "_weight"
+    let b_name = name + "_bias"
+    let w_tensor = linear.weight.data().transpose()
+    let b_tensor = linear.bias.data()
+    inits.push(
+      OnnxTensor::{
+        name: w_name,
+        dtype: 1,
+        shape: w_tensor.shape(),
+        data: w_tensor.to_array(),
+      },
+    )
+    inits.push(
+      OnnxTensor::{
+        name: b_name,
+        dtype: 1,
+        shape: b_tensor.shape(),
+        data: b_tensor.to_array(),
+      },
+    )
+    nodes.push(
+      OnnxNode::{
+        op_type: "Gemm",
+        inputs: [in_name, w_name, b_name],
+        outputs: [out_name],
+        attributes: [
+          OnnxAttribute::{
+            name: "transB",
+            int_value: 1L,
+            float_value: 0.0,
+            ints: [],
+          },
+        ],
+      },
+    )
+  }
+
+  // 1. Q, K, V projections (Gemm)
+  let q_name = prefix + "_q"
+  let k_name = prefix + "_k"
+  let v_name = prefix + "_v"
+  add_gemm(sa.wq, prefix + "_wq", input_name, q_name, nodes, inits)
+  add_gemm(sa.wk, prefix + "_wk", input_name, k_name, nodes, inits)
+  add_gemm(sa.wv, prefix + "_wv", input_name, v_name, nodes, inits)
+  // 2. Transpose K -> K^T
+  let kt_name = prefix + "_kt"
+  nodes.push(
+    OnnxNode::{
+      op_type: "Transpose",
+      inputs: [k_name],
+      outputs: [kt_name],
+      attributes: [
+        OnnxAttribute::{
+          name: "perm",
+          int_value: 0L,
+          float_value: 0.0,
+          ints: [1, 0],
+        },
+      ],
+    },
+  )
+  // 3. MatMul(Q, K^T) -> scores
+  let scores_name = prefix + "_scores"
+  nodes.push(
+    OnnxNode::{
+      op_type: "MatMul",
+      inputs: [q_name, kt_name],
+      outputs: [scores_name],
+      attributes: [],
+    },
+  )
+  // 4. Div(scores, sqrt(d_k)) -> scaled_scores
+  let scale_name = prefix + "_scale"
+  let d_k = sa.d_k.to_double()
+  inits.push(
+    OnnxTensor::{
+      name: scale_name,
+      dtype: 1,
+      shape: [1],
+      data: [d_k.sqrt()],
+    },
+  )
+  let scaled_name = prefix + "_scaled"
+  nodes.push(
+    OnnxNode::{
+      op_type: "Div",
+      inputs: [scores_name, scale_name],
+      outputs: [scaled_name],
+      attributes: [],
+    },
+  )
+  // 5. Softmax -> attn_weights
+  let attn_name = prefix + "_attn"
+  nodes.push(
+    OnnxNode::{
+      op_type: "Softmax",
+      inputs: [scaled_name],
+      outputs: [attn_name],
+      attributes: [
+        OnnxAttribute::{
+          name: "axis",
+          int_value: -1L,
+          float_value: 0.0,
+          ints: [],
+        },
+      ],
+    },
+  )
+  // 6. MatMul(attn, V) -> context
+  let context_name = prefix + "_context"
+  nodes.push(
+    OnnxNode::{
+      op_type: "MatMul",
+      inputs: [attn_name, v_name],
+      outputs: [context_name],
+      attributes: [],
+    },
+  )
+  // 7. Output projection (Gemm)
+  add_gemm(sa.wo, prefix + "_wo", context_name, output_name, nodes, inits)
+  (nodes, inits)
 }
 
 ///|

@@ -89,6 +89,45 @@ fn backward_with_grad(variable : Variable, grad : @tensor.Tensor) -> Unit {
       }
       backward_with_grad(a, @tensor.Tensor::from_array(summed))
     }
+    Some(ScaleBackward(a, factor)) => {
+      backward_with_grad(a, grad.scale(factor))
+    }
+    Some(SoftmaxBackward(input, softmax_data)) => {
+      // grad_input = softmax_out * (grad - sum(grad * softmax_out, per row))
+      let s = softmax_data.to_array()
+      let g = grad.to_array()
+      let n = s.length()
+      let shape = softmax_data.shape()
+      let last_dim = shape[shape.length() - 1]
+      let num_rows = n / last_dim
+      let result = Array::make(n, 0.0)
+      for row = 0; row < num_rows; row = row + 1 {
+        let offset = row * last_dim
+        let mut dot = 0.0
+        for j = 0; j < last_dim; j = j + 1 {
+          dot = dot + g[offset + j] * s[offset + j]
+        }
+        for j = 0; j < last_dim; j = j + 1 {
+          result[offset + j] = s[offset + j] * (g[offset + j] - dot)
+        }
+      }
+      backward_with_grad(
+        input,
+        @tensor.Tensor::from_array_with_shape(result, shape),
+      )
+    }
+    Some(BatchedMatmulBackward(a, b)) => {
+      // d/da = grad @ b^T_last2, d/db = a^T_last2 @ grad
+      backward_with_grad(a, grad.batched_matmul_2d(b.data.transpose_last2()))
+      backward_with_grad(b, a.data.transpose_last2().batched_matmul_2d(grad))
+    }
+    Some(TransposeLast2Backward(a)) => {
+      // transpose_last2 is its own inverse
+      backward_with_grad(a, grad.transpose_last2())
+    }
+    Some(ReshapeBackward(a, original_shape)) => {
+      backward_with_grad(a, grad.reshape(original_shape))
+    }
     None => ()
   }
 }

@@ -17,4 +17,9 @@ priv enum GradFn {
   TanhBackward(Variable)
   SigmoidBackward(Variable)
   ExpandRowsBackward(Variable)
+  ScaleBackward(Variable, Double)
+  SoftmaxBackward(Variable, @tensor.Tensor) // (input, softmax_output_data)
+  BatchedMatmulBackward(Variable, Variable)
+  TransposeLast2Backward(Variable)
+  ReshapeBackward(Variable, Array[Int]) // (input, original_shape)
 }

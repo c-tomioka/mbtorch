@@ -6,6 +6,7 @@ pub(all) enum Layer {
   BatchNorm2d(BatchNorm2d)
   Relu
   Flatten
+  SelfAttention(SelfAttention)
 }
 
 ///|
@@ -23,6 +24,7 @@ pub fn Layer::forward(self : Layer, input : @autograd.Variable) -> @autograd.Var
       let reshaped = data.reshape([n, flat_size])
       @autograd.Variable::new(reshaped, requires_grad=false)
     }
+    SelfAttention(sa) => sa.forward(input)
   }
 }
 
@@ -35,5 +37,6 @@ pub fn Layer::parameters(self : Layer) -> Array[@autograd.Variable] {
     BatchNorm2d(bn) => bn.parameters()
     Relu => []
     Flatten => []
+    SelfAttention(sa) => sa.parameters()
   }
 }

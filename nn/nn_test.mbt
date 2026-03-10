@@ -257,3 +257,78 @@ test "mlp with sigmoid reduces loss" {
   let final_loss = diff_f.mul(diff_f).sum().data().get([])
   assert_true(final_loss < initial_loss)
 }
+
+///|
+test "self_attention forward shape" {
+  let sa = @nn.SelfAttention::new(8, num_heads=2, seed=42UL)
+  // input: [batch=2, seq_len=4, d_model=8]
+  let input_data = @tensor.Tensor::rand([2, 4, 8], seed=1UL)
+  let input = @autograd.Variable::new(input_data, requires_grad=true)
+  let output = sa.forward(input)
+  assert_eq(output.shape(), [2, 4, 8])
+  // Verify output is finite (no NaN)
+  let out_data = output.data().to_array()
+  for i = 0; i < out_data.length(); i = i + 1 {
+    assert_true(out_data[i] == out_data[i]) // NaN != NaN
+  }
+}
+
+///|
+test "self_attention single head" {
+  let sa = @nn.SelfAttention::new(4, num_heads=1, seed=99UL)
+  let input_data = @tensor.Tensor::rand([1, 3, 4], seed=10UL)
+  let input = @autograd.Variable::new(input_data, requires_grad=true)
+  let output = sa.forward(input)
+  assert_eq(output.shape(), [1, 3, 4])
+}
+
+///|
+test "self_attention parameters count" {
+  let sa = @nn.SelfAttention::new(8, num_heads=2, seed=42UL)
+  let params = sa.parameters()
+  // 4 Linear layers × 2 params each (weight + bias) = 8
+  assert_eq(params.length(), 8)
+}
+
+///|
+test "self_attention backward grad exists" {
+  let sa = @nn.SelfAttention::new(4, num_heads=1, seed=42UL)
+  let input_data = @tensor.Tensor::rand([1, 2, 4], seed=1UL)
+  let input = @autograd.Variable::new(input_data, requires_grad=true)
+  let output = sa.forward(input)
+  let loss = output.sum()
+  loss.backward()
+  assert_true(input.grad() is Some(_))
+}
+
+///|
+test "self_attention training loss decreases" {
+  let sa = @nn.SelfAttention::new(4, num_heads=1, seed=42UL)
+  let input_data = @tensor.Tensor::rand([1, 2, 4], seed=1UL)
+  let target_data = @tensor.Tensor::rand([1, 2, 4], seed=2UL)
+  let input = @autograd.Variable::new(input_data)
+  let target = @autograd.Variable::new(target_data)
+  let lr = 0.01
+  // Initial loss
+  let out0 = sa.forward(input)
+  let diff0 = out0.sub(target)
+  let initial_loss = diff0.mul(diff0).sum().data().get([])
+  // Train for 5 steps
+  for _step = 0; _step < 5; _step = _step + 1 {
+    let out = sa.forward(input)
+    let diff = out.sub(target)
+    let loss = diff.mul(diff).sum()
+    loss.backward()
+    let params = sa.parameters()
+    for i = 0; i < params.length(); i = i + 1 {
+      let p = params[i]
+      let grad = p.grad().unwrap()
+      p.set_data(p.data().sub(grad.scale(lr)))
+      p.zero_grad()
+    }
+  }
+  let out_f = sa.forward(input)
+  let diff_f = out_f.sub(target)
+  let final_loss = diff_f.mul(diff_f).sum().data().get([])
+  assert_true(final_loss < initial_loss)
+}

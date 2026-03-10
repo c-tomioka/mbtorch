@@ -272,3 +272,77 @@ pub fn load_cnn_model_from_onnx_and_safetensors(
   }
   result
 }
+
+///|
+/// Import a SelfAttention layer from ONNX bytes.
+/// Expects the pattern: 3×Gemm(Q/K/V) + Transpose + MatMul + Div + Softmax + MatMul + Gemm(O)
+pub fn import_self_attention_from_onnx(
+  onnx_data : Bytes,
+  num_heads~ : Int = 1,
+) -> @nn.SelfAttention raise OnnxError {
+  let graph = parse_onnx(onnx_data)
+  let nodes = graph.nodes
+  guard nodes.length() == 9 else {
+    raise InvalidModel(
+      "self-attention import expects 9 nodes, got \{nodes.length()}",
+    )
+  }
+  // Validate pattern
+  guard nodes[0].op_type == "Gemm" &&
+    nodes[1].op_type == "Gemm" &&
+    nodes[2].op_type == "Gemm" &&
+    nodes[3].op_type == "Transpose" &&
+    nodes[4].op_type == "MatMul" &&
+    nodes[5].op_type == "Div" &&
+    nodes[6].op_type == "Softmax" &&
+    nodes[7].op_type == "MatMul" &&
+    nodes[8].op_type == "Gemm" else {
+    raise UnsupportedOp(
+      "self-attention pattern mismatch: expected Gemm×3+Transpose+MatMul+Div+Softmax+MatMul+Gemm",
+    )
+  }
+  // Validate Q/K/V share same input (self-attention)
+  guard nodes[0].inputs[0] == nodes[1].inputs[0] &&
+    nodes[0].inputs[0] == nodes[2].inputs[0] else {
+    raise UnsupportedOp(
+      "not self-attention: Q/K/V projections have different inputs",
+    )
+  }
+  // Build initializer map
+  let init_map : Map[String, OnnxTensor] = {}
+  for i = 0; i < graph.initializers.length(); i = i + 1 {
+    init_map.set(graph.initializers[i].name, graph.initializers[i])
+  }
+  fn load_gemm_as_linear(
+    node : OnnxNode,
+    init_map : Map[String, OnnxTensor],
+  ) -> @nn.Linear raise OnnxError {
+    guard node.inputs.length() >= 3 else {
+      raise InvalidModel("Gemm needs at least 3 inputs for self-attention")
+    }
+    let w_init = match init_map.get(node.inputs[1]) {
+      Some(t) => t
+      None => raise InvalidModel("weight not found: " + node.inputs[1])
+    }
+    let b_init = match init_map.get(node.inputs[2]) {
+      Some(t) => t
+      None => raise InvalidModel("bias not found: " + node.inputs[2])
+    }
+    let mut weight = @tensor.Tensor::from_array_with_shape(
+      w_init.data,
+      w_init.shape,
+    )
+    let trans_b = get_int_attr(node.attributes, "transB", 0L)
+    if trans_b == 1L {
+      weight = weight.transpose()
+    }
+    let bias = @tensor.Tensor::from_array_with_shape(b_init.data, b_init.shape)
+    @nn.Linear::from_tensors(weight, bias)
+  }
+
+  let wq = load_gemm_as_linear(nodes[0], init_map)
+  let wk = load_gemm_as_linear(nodes[1], init_map)
+  let wv = load_gemm_as_linear(nodes[2], init_map)
+  let wo = load_gemm_as_linear(nodes[8], init_map)
+  @nn.SelfAttention::from_linears(wq, wk, wv, wo, num_heads)
+}

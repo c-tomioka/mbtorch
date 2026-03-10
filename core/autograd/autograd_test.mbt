@@ -440,3 +440,87 @@ test "grad_check sigmoid" {
     @autograd.grad_check(fn(inputs) { inputs[0].sigmoid().sum() }, [x]),
   )
 }
+
+///|
+test "grad_check scale" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array([1.0, 2.0, -3.0, 0.5]),
+    requires_grad=true,
+  )
+  assert_true(
+    @autograd.grad_check(fn(inputs) { inputs[0].scale(0.5).sum() }, [x]),
+  )
+}
+
+///|
+test "grad_check softmax" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[1.0, 2.0, 3.0], [0.5, -0.5, 1.0]]),
+    requires_grad=true,
+  )
+  // softmax().sum() is constant 1.0, so use non-uniform weights for non-trivial gradients
+  let w = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[1.0, 2.0, 3.0], [0.5, 1.5, 2.0]]),
+  )
+  assert_true(
+    @autograd.grad_check(
+      fn(inputs) { inputs[0].softmax().mul(w).sum() },
+      [x],
+    ),
+  )
+}
+
+///|
+test "grad_check reshape" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array_2d([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
+    requires_grad=true,
+  )
+  assert_true(
+    @autograd.grad_check(
+      fn(inputs) { inputs[0].reshape([3, 2]).sum() },
+      [x],
+    ),
+  )
+}
+
+///|
+test "grad_check transpose_last2" {
+  let x = @autograd.Variable::new(
+    @tensor.Tensor::from_array_with_shape(
+      [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0],
+      [2, 2, 3],
+    ),
+    requires_grad=true,
+  )
+  assert_true(
+    @autograd.grad_check(
+      fn(inputs) { inputs[0].transpose_last2().sum() },
+      [x],
+    ),
+  )
+}
+
+///|
+test "grad_check batched_matmul_2d" {
+  let a = @autograd.Variable::new(
+    @tensor.Tensor::from_array_with_shape(
+      [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+      [2, 1, 3],
+    ),
+    requires_grad=true,
+  )
+  let b = @autograd.Variable::new(
+    @tensor.Tensor::from_array_with_shape(
+      [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+      [2, 3, 1],
+    ),
+    requires_grad=true,
+  )
+  assert_true(
+    @autograd.grad_check(
+      fn(inputs) { inputs[0].batched_matmul_2d(inputs[1]).sum() },
+      [a, b],
+    ),
+  )
+}

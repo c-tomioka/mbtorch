@@ -81,6 +81,17 @@ pub fn Tensor::div(self : Tensor, other : Tensor) -> Tensor {
 }
 
 ///|
+/// Element-wise exponential (e^x).
+pub fn Tensor::exp(self : Tensor) -> Tensor {
+  let n = self.data_.length()
+  let result = Array::make(n, 0.0)
+  for i = 0; i < n; i = i + 1 {
+    result[i] = @math.exp(self.data_[i])
+  }
+  { data_: result, shape_: self.shape_.copy(), dtype_: Float32, quant_params_: None }
+}
+
+///|
 /// Element-wise square root.
 pub fn Tensor::sqrt(self : Tensor) -> Tensor {
   let n = self.data_.length()

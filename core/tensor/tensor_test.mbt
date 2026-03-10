@@ -293,3 +293,122 @@ test "tensor sqrt computes element-wise square root" {
   assert_eq(result.get([2]), 4.0)
   assert_eq(result.get([3]), 0.0)
 }
+
+///|
+test "exp basic values" {
+  let t = @tensor.Tensor::from_array([0.0, 1.0, -1.0])
+  let result = t.exp()
+  assert_eq(result.shape(), [3])
+  // exp(0) = 1.0
+  assert_true((result.get([0]) - 1.0).abs() < 1.0e-10)
+  // exp(1) ≈ 2.71828
+  assert_true((result.get([1]) - 2.718281828459045).abs() < 1.0e-10)
+  // exp(-1) ≈ 0.36788
+  assert_true((result.get([2]) - 0.36787944117144233).abs() < 1.0e-10)
+}
+
+///|
+test "softmax 1d" {
+  let t = @tensor.Tensor::from_array([1.0, 2.0, 3.0])
+  let result = t.softmax()
+  assert_eq(result.shape(), [3])
+  // Sum should be 1.0
+  let sum = result.get([0]) + result.get([1]) + result.get([2])
+  assert_true((sum - 1.0).abs() < 1.0e-10)
+  // Monotonically increasing: softmax(1) < softmax(2) < softmax(3)
+  assert_true(result.get([0]) < result.get([1]))
+  assert_true(result.get([1]) < result.get([2]))
+}
+
+///|
+test "softmax 2d row-wise" {
+  let t = @tensor.Tensor::from_array_2d([[1.0, 2.0, 3.0], [1.0, 1.0, 1.0]])
+  let result = t.softmax()
+  assert_eq(result.shape(), [2, 3])
+  // Row 0 sums to 1
+  let row0_sum = result.get([0, 0]) + result.get([0, 1]) + result.get([0, 2])
+  assert_true((row0_sum - 1.0).abs() < 1.0e-10)
+  // Row 1 sums to 1, and all equal
+  let row1_sum = result.get([1, 0]) + result.get([1, 1]) + result.get([1, 2])
+  assert_true((row1_sum - 1.0).abs() < 1.0e-10)
+  assert_true((result.get([1, 0]) - result.get([1, 1])).abs() < 1.0e-10)
+}
+
+///|
+test "softmax numerical stability" {
+  // Large values should not overflow
+  let t = @tensor.Tensor::from_array([1000.0, 1001.0, 1002.0])
+  let result = t.softmax()
+  let sum = result.get([0]) + result.get([1]) + result.get([2])
+  assert_true((sum - 1.0).abs() < 1.0e-10)
+  // Should be same relative distribution as softmax([0, 1, 2])
+  assert_true(result.get([0]) < result.get([1]))
+  assert_true(result.get([1]) < result.get([2]))
+}
+
+///|
+test "softmax 3d last axis" {
+  // [2, 2, 3] tensor
+  let data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]
+  let t = @tensor.Tensor::from_array_with_shape(data, [2, 2, 3])
+  let result = t.softmax()
+  assert_eq(result.shape(), [2, 2, 3])
+  // Each "row" of 3 elements along last axis sums to 1.0
+  let eps = 1.0e-10
+  let r = result.to_array()
+  // Row 0: indices 0,1,2
+  assert_true((r[0] + r[1] + r[2] - 1.0).abs() < eps)
+  // Row 1: indices 3,4,5
+  assert_true((r[3] + r[4] + r[5] - 1.0).abs() < eps)
+  // Row 2: indices 6,7,8
+  assert_true((r[6] + r[7] + r[8] - 1.0).abs() < eps)
+  // Row 3: indices 9,10,11
+  assert_true((r[9] + r[10] + r[11] - 1.0).abs() < eps)
+}
+
+///|
+test "batched_matmul_2d basic" {
+  // Batch 0: [[1,2],[3,4]] @ [[5,6],[7,8]] = [[19,22],[43,50]]
+  // Batch 1: [[1,0],[0,1]] @ [[2,3],[4,5]] = [[2,3],[4,5]]
+  let a_data = [1.0, 2.0, 3.0, 4.0, 1.0, 0.0, 0.0, 1.0]
+  let a = @tensor.Tensor::from_array_with_shape(a_data, [2, 2, 2])
+  let b_data = [5.0, 6.0, 7.0, 8.0, 2.0, 3.0, 4.0, 5.0]
+  let b = @tensor.Tensor::from_array_with_shape(b_data, [2, 2, 2])
+  let result = a.batched_matmul_2d(b)
+  assert_eq(result.shape(), [2, 2, 2])
+  let r = result.to_array()
+  // Batch 0
+  assert_eq(r[0], 19.0)
+  assert_eq(r[1], 22.0)
+  assert_eq(r[2], 43.0)
+  assert_eq(r[3], 50.0)
+  // Batch 1 (identity @ matrix = matrix)
+  assert_eq(r[4], 2.0)
+  assert_eq(r[5], 3.0)
+  assert_eq(r[6], 4.0)
+  assert_eq(r[7], 5.0)
+}
+
+///|
+test "transpose_last2 3d" {
+  // [2, 3, 2] -> [2, 2, 3]
+  let data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]
+  let t = @tensor.Tensor::from_array_with_shape(data, [2, 3, 2])
+  let result = t.transpose_last2()
+  assert_eq(result.shape(), [2, 2, 3])
+  let r = result.to_array()
+  // Batch 0: [[1,2],[3,4],[5,6]] transposed = [[1,3,5],[2,4,6]]
+  assert_eq(r[0], 1.0)
+  assert_eq(r[1], 3.0)
+  assert_eq(r[2], 5.0)
+  assert_eq(r[3], 2.0)
+  assert_eq(r[4], 4.0)
+  assert_eq(r[5], 6.0)
+  // Batch 1: [[7,8],[9,10],[11,12]] transposed = [[7,9,11],[8,10,12]]
+  assert_eq(r[6], 7.0)
+  assert_eq(r[7], 9.0)
+  assert_eq(r[8], 11.0)
+  assert_eq(r[9], 8.0)
+  assert_eq(r[10], 10.0)
+  assert_eq(r[11], 12.0)
+}

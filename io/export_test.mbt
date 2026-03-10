@@ -290,6 +290,70 @@ test "mlp f16 inference parity" {
 }
 
 ///|
+/// SA-E1: Export SelfAttention → correct node structure
+test "export self_attention structure" {
+  let sa = @nn.SelfAttention::new(4, num_heads=1, seed=42UL)
+  let layers : Array[@nn.Layer] = [@nn.Layer::SelfAttention(sa)]
+  let onnx_bytes = @io.export_onnx(layers, [1, 2, 4])
+  let graph = @io.parse_onnx(onnx_bytes)
+  // Expected nodes: Gemm(Q)+Gemm(K)+Gemm(V)+Transpose+MatMul+Div+Softmax+MatMul+Gemm(O) = 9
+  assert_eq(graph.nodes.length(), 9)
+  assert_eq(graph.nodes[0].op_type, "Gemm") // Q
+  assert_eq(graph.nodes[1].op_type, "Gemm") // K
+  assert_eq(graph.nodes[2].op_type, "Gemm") // V
+  assert_eq(graph.nodes[3].op_type, "Transpose") // K^T
+  assert_eq(graph.nodes[4].op_type, "MatMul") // Q @ K^T
+  assert_eq(graph.nodes[5].op_type, "Div") // / sqrt(d_k)
+  assert_eq(graph.nodes[6].op_type, "Softmax") // softmax
+  assert_eq(graph.nodes[7].op_type, "MatMul") // attn @ V
+  assert_eq(graph.nodes[8].op_type, "Gemm") // output projection
+  // 4 Gemm × 2 (weight+bias) + 1 scale constant = 9 initializers
+  assert_eq(graph.initializers.length(), 9)
+}
+
+///|
+/// SA-E2: Export SelfAttention initializer count
+test "export self_attention initializer count" {
+  let sa = @nn.SelfAttention::new(8, num_heads=2, seed=10UL)
+  let layers : Array[@nn.Layer] = [@nn.Layer::SelfAttention(sa)]
+  let onnx_bytes = @io.export_onnx(layers, [1, 3, 8])
+  let graph = @io.parse_onnx(onnx_bytes)
+  // 4 Gemm × 2 (weight+bias) + 1 (scale constant) = 9
+  assert_eq(graph.initializers.length(), 9)
+}
+
+///|
+/// SA-E3: Export → import → forward roundtrip for SelfAttention
+test "export self_attention roundtrip forward" {
+  let sa = @nn.SelfAttention::new(4, num_heads=1, seed=42UL)
+  let layers : Array[@nn.Layer] = [@nn.Layer::SelfAttention(sa)]
+  // Original forward: [1, 2, 4]
+  let input_data = @tensor.Tensor::from_array_with_shape(
+    [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+    [1, 2, 4],
+  )
+  let input = @autograd.Variable::new(input_data)
+  let y_orig = sa.forward(input)
+  let expected = y_orig.data().to_array()
+  // Export → import
+  let onnx_bytes = @io.export_onnx(layers, [1, 2, 4])
+  let imported = @io.import_self_attention_from_onnx(onnx_bytes, num_heads=1)
+  // Forward with imported model
+  let input2 = @autograd.Variable::new(
+    @tensor.Tensor::from_array_with_shape(
+      [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+      [1, 2, 4],
+    ),
+  )
+  let y_imported = imported.forward(input2)
+  let actual = y_imported.data().to_array()
+  let eps = 1.0e-4
+  for i = 0; i < expected.length(); i = i + 1 {
+    assert_true((actual[i] - expected[i]).abs() < eps)
+  }
+}
+
+///|
 /// D-T19: Linear int8 inference parity — binary .mbt int8 roundtrip forward
 test "linear int8 inference parity" {
   let weight = @tensor.Tensor::from_array_with_shape(
