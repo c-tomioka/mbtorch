@@ -253,10 +253,21 @@ fn build_node_proto_full(
 }
 
 ///|
-/// Build a minimal ValueInfoProto (only name field needed).
+/// Build a ValueInfoProto with name and tensor(float) type.
+/// Required by onnxruntime for graph inputs/outputs.
 fn build_value_info(name : String) -> Array[Byte] {
+  let content : Array[Byte] = []
   // ValueInfoProto field 1: name
-  encode_string_field(1, name)
+  append_all(content, encode_string_field(1, name))
+  // ValueInfoProto field 2: type (TypeProto)
+  //   TypeProto field 1: tensor_type (Tensor_TypeProto)
+  //     Tensor_TypeProto field 1: elem_type = 1 (FLOAT)
+  let tensor_type : Array[Byte] = []
+  append_all(tensor_type, encode_varint_field(1, 1UL))
+  let type_proto : Array[Byte] = []
+  append_all(type_proto, encode_len_delimited(1, tensor_type))
+  append_all(content, encode_len_delimited(2, type_proto))
+  content
 }
 
 ///|
@@ -297,6 +308,8 @@ fn build_model_proto_with_opset(
   opset_version : Int,
 ) -> Bytes {
   let content : Array[Byte] = []
+  // Field 1: ir_version (varint) — required by onnxruntime
+  append_all(content, encode_varint_field(1, 7UL))
   // Field 7: graph
   append_all(content, encode_len_delimited(7, graph))
   // Field 8: opset_import (sub-message with field 2 = version)
